@@ -1,94 +1,38 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
-env/
 venv/
-.venv/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
 *.egg-info/
-.installed.cfg
-*.egg
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.cache
-nosetests.xml
-coverage.xml
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-
-# Sphinx documentation
-docs/_build/
-docs2/_build/
-
-# PyBuilder
-target/
-
-# Backups
-*.bak
-*~
-.#*
-*#
+# IDE
+.idea/
+.vscode/
 *.swp
 *.swo
 
-# macOS
+# OS
 .DS_Store
 
-.ipynb*
-samples2/
+# Logs
+logs/
+*.log
+nohup.out
 
-# Ignore test files in Datas
-datas/*.py
-
-.idea/
-
-# Data directory - contains market data, news, backtest results
+# Data
 data/
 
-# Temporary files
-*.json.bak
-rss_validation_results.json
-test_*.py
-results_*.py
-results_*.json
-validate_*.py
-analyze_*.py
-check_*.py
-import_*.py
-fetch_*.py
-download_*.sh
-populate_*.py
-create_*_config.py
+# Results
+results/
+
+# Temp
+temp/
+
+# Archive
+archive/
+
+# Backup
+*.bak
+*~
+

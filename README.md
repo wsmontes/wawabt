@@ -2,6 +2,8 @@
 
 An enhanced version of [backtrader](https://www.backtrader.com/) with seamless data management, multiple data sources, and intelligent database integration.
 
+> 📋 **New to the project?** Check out [WORKSPACE_ORGANIZATION.md](WORKSPACE_ORGANIZATION.md) for workspace structure and best practices.
+
 ## 🚀 Quick Start
 
 ### Run Your First Backtest

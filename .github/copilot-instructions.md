@@ -1,7 +1,5 @@
 # WawaBackTrader - Copilot Instructions
 
-## O que é este projeto
-
 **WawaBackTrader** é uma versão aprimorada do [backtrader](https://www.backtrader.com/) com gerenciamento inteligente de dados financeiros, suportando múltiplas fontes de dados e integração com banco de dados DuckDB/Parquet.
 
 ### Propósito Principal
@@ -39,50 +37,18 @@ docs/                # Documentação técnica
 
 ### 1. **ConnectorEngine** (`engines/connector.py`)
 - Conecta com fontes externas: Yahoo Finance, Binance, CCXT, Alpaca, Quandl
-- Métodos: `get_yahoo_data()`, `get_binance_data()`, `get_ccxt_data()`
-- Integra automaticamente com `SmartDatabaseManager`
 
 ### 2. **SmartDatabaseManager** (`engines/smart_db.py`)
 - Gerencia DuckDB + Parquet para armazenamento eficiente
-- Auto-deduplicação por `symbol + timestamp + source + interval`
-- Estrutura: `data/market/{source}/{symbol}/{interval}.parquet`
-- Métodos: `save_market_data()`, `query_market_data()`, `save_news_data()`
 
 ### 3. **RSSEngine** (`engines/rss.py`)
 - Coleta notícias de feeds RSS (Bloomberg, Reuters, Yahoo, CNBC, CoinDesk)
-- Armazena em `data/news/{YYYY}/{MM}/news_{YYYYMMDD}.parquet`
-- Deduplicação por `link + timestamp`
 
 ### 4. **DatabaseEngine** (`engines/database.py`)
 - Interface legacy para SQLite (manter compatibilidade)
-- Uso recomendado: `SmartDatabaseManager` para novos desenvolvimentos
 
 ### 5. **AutoFetchData** (`engines/bt_data.py`)
 - Feed de dados do backtrader com auto-fetch
-- Verifica database → fetch se necessário → salva automaticamente
-- Uso: `data = AutoFetchData(dataname='AAPL', source='yahoo', interval='1d')`
-
-## Documentação de Referência
-
-### Documentos Principais
-- **`docs/BACKTRADER_INTEGRATION.md`**: Como integrar strategies com engines
-- **`docs/DATA_ARCHITECTURE.md`**: Arquitetura do banco de dados e particionamento
-- **`docs/README_ENGINES.md`**: Guia completo dos engines e exemplos de uso
-- **`docs/INSTALLATION_COMPLETE.md`**: Setup completo do ambiente
-- **`docs/RSS_VALIDATION_REPORT.md`**: Status dos feeds RSS configurados
-
-### Arquivos de Configuração
-- **`config/connector.json`**: API keys para data sources
-- **`config/rss_sources.json`**: URLs dos feeds RSS
-- **`config/rss_stocks.json`**: Feeds RSS específicos de ações
-- **`config/database.json`**: Configurações do database
-- **`config/datasets.json`**: Datasets disponíveis
-
-### Principais Scripts
-- **`bt_run.py`**: CLI para executar strategies com auto-fetch
-- **`fetch_binance_news.py`**: Coletar notícias da Binance
-- **`populate_historical_news.py`**: Popular histórico de notícias
-- **`validate_rss_feeds.py`**: Validar status dos feeds RSS
 
 ## Convenções de Uso
 
@@ -124,4 +90,6 @@ python bt_run.py --strategy strategies/sma_cross.py --symbols AAPL GOOGL --cash 
 2. **Usar SmartDatabaseManager** para novos recursos (não DatabaseEngine legacy)
 3. **Manter deduplicação** em todas as operações de save
 4. **Particionar dados** por symbol/interval quando apropriado
-5. **Documentar** em `docs/` qualquer mudança arquitetural significativa
+5. **Documentar** em `docs/` apenas funcionalidades novas. Preferir atualizar documentos existentes.
+6. **Testar** em `tests/`, preferir atualizar testes existentes.
+7. **Use VENV** e não esqueça de ativar o ambiente virtual antes de rodar qualquer programa.

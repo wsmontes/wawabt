@@ -280,13 +280,13 @@ class SmartDatabaseManager:
             saved_files.append(file_path)
             total_saved += len(group_df)
             
-            # Create/update virtual table
-            clean_source = source.replace('/', '_').replace('-', '_').replace(' ', '_')
+            # Create/update virtual table (sanitize source name for SQL)
+            clean_source = source.replace('/', '_').replace('-', '_').replace(' ', '_').replace('.', '_')
             table_name = f"news_{clean_source}_{year}_{month:02d}"
             self.conn.execute(f"CREATE OR REPLACE VIEW {table_name} AS SELECT * FROM read_parquet('{file_path}')")
         
         # Create unified view for the source
-        clean_source = source.replace('/', '_').replace('-', '_').replace(' ', '_')
+        clean_source = source.replace('/', '_').replace('-', '_').replace(' ', '_').replace('.', '_')
         news_dir = Path("data/news") / source
         if news_dir.exists():
             pattern = str(news_dir / "**/*.parquet")

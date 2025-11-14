@@ -226,7 +226,7 @@ class SmartDatabaseManager:
     
     def store_news_data(self, df: pd.DataFrame, source: str):
         """
-        Store news/RSS data partitioned by date
+        Store news/RSS data partitioned by date OF THE DATA (not current date)
         Ensures uniqueness: link + timestamp
         """
         df = df.copy()
@@ -235,6 +235,10 @@ class SmartDatabaseManager:
         if 'created_at' not in df.columns:
             df['created_at'] = datetime.now(timezone.utc)
         
+        # Ensure timestamp is datetime
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+        
         # Calculate hash for deduplication
         if 'link' in df.columns and 'timestamp' in df.columns:
             df['content_hash'] = self._calculate_hash(df, ['link', 'timestamp'])
@@ -242,32 +246,54 @@ class SmartDatabaseManager:
         # Deduplicate
         df = self._deduplicate(df, 'news_data')
         
-        # Get file path (partitioned by current month)
-        file_path = self._get_data_path('news_data', source=source)
+        # Partition by year/month of the DATA timestamp (not current date)
+        df['_year'] = df['timestamp'].dt.year
+        df['_month'] = df['timestamp'].dt.month
         
-        # Merge with existing data
-        if file_path.exists():
-            existing_df = pd.read_parquet(file_path)
+        saved_files = []
+        total_saved = 0
+        
+        # Process each partition separately
+        for (year, month), group_df in df.groupby(['_year', '_month']):
+            # Remove auxiliary columns
+            group_df = group_df.drop(columns=['_year', '_month'])
             
-            # Normalize timestamps to timezone-aware UTC
-            if 'timestamp' in existing_df.columns:
-                existing_df['timestamp'] = pd.to_datetime(existing_df['timestamp'], utc=True)
-            if 'created_at' in existing_df.columns:
-                existing_df['created_at'] = pd.to_datetime(existing_df['created_at'], utc=True)
+            # Get file path based on data timestamp
+            file_path = self._get_data_path('news_data', source=source, year=int(year), month=int(month))
             
-            df = pd.concat([existing_df, df], ignore_index=True)
-            df = self._deduplicate(df, 'news_data')
-            df = df.sort_values('timestamp')
+            # Merge with existing data
+            if file_path.exists():
+                existing_df = pd.read_parquet(file_path)
+                
+                # Normalize timestamps to timezone-aware UTC
+                if 'timestamp' in existing_df.columns:
+                    existing_df['timestamp'] = pd.to_datetime(existing_df['timestamp'], utc=True)
+                if 'created_at' in existing_df.columns:
+                    existing_df['created_at'] = pd.to_datetime(existing_df['created_at'], utc=True)
+                
+                group_df = pd.concat([existing_df, group_df], ignore_index=True)
+                group_df = self._deduplicate(group_df, 'news_data')
+                group_df = group_df.sort_values('timestamp')
+            
+            # Save to parquet
+            group_df.to_parquet(file_path, engine='pyarrow', compression='snappy', index=False)
+            saved_files.append(file_path)
+            total_saved += len(group_df)
+            
+            # Create/update virtual table
+            clean_source = source.replace('/', '_').replace('-', '_').replace(' ', '_')
+            table_name = f"news_{clean_source}_{year}_{month:02d}"
+            self.conn.execute(f"CREATE OR REPLACE VIEW {table_name} AS SELECT * FROM read_parquet('{file_path}')")
         
-        # Save to parquet
-        df.to_parquet(file_path, engine='pyarrow', compression='snappy', index=False)
+        # Create unified view for the source
+        clean_source = source.replace('/', '_').replace('-', '_').replace(' ', '_')
+        news_dir = Path("data/news") / source
+        if news_dir.exists():
+            pattern = str(news_dir / "**/*.parquet")
+            self.conn.execute(f"CREATE OR REPLACE VIEW news_{clean_source} AS SELECT * FROM read_parquet('{pattern}')")
         
-        # Create/update virtual table
-        table_name = f"news_{source}".replace('/', '_').replace('-', '_')
-        self.conn.execute(f"CREATE OR REPLACE VIEW {table_name} AS SELECT * FROM read_parquet('{file_path}')")
-        
-        print(f"✓ Stored {len(df)} news entries: {source}")
-        return file_path
+        print(f"✓ Stored {total_saved} news entries in {len(saved_files)} file(s): {source}")
+        return saved_files
     
     def query_news_data(self, source: Optional[str] = None, category: Optional[str] = None,
                        start_date: Optional[str] = None, end_date: Optional[str] = None) -> pd.DataFrame:

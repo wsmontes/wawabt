@@ -59,8 +59,8 @@ data/
 ├── news/                       # News and RSS feeds
 │   ├── Bloomberg/
 │   │   ├── 2025/
-│   │   │   ├── 01.parquet     # January 2025
-│   │   │   └── 02.parquet     # February 2025
+│   │   │   ├── 01.parquet     # January 2025 news (partitioned by data timestamp)
+│   │   │   └── 02.parquet     # February 2025 news (partitioned by data timestamp)
 │   │   └── ...
 │   ├── Reuters/
 │   │   └── 2025/
@@ -223,11 +223,13 @@ df = db.query_market_data(
 
 ### Storing News Data
 ```python
-# Automatically partitioned by date
+# Automatically partitioned by data timestamp (year/month of news items)
+# Data with different dates are saved to different files
 db.store_news_data(
-    df=news_df,
+    df=news_df,  # Can contain news from multiple months
     source='Bloomberg'
 )
+# Result: Creates separate files like 2025/01.parquet, 2025/02.parquet
 ```
 
 ### Storing Analysis Results

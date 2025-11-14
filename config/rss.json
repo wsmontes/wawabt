@@ -1,0 +1,322 @@
+{
+  "feeds": {
+    "news": [
+      {
+        "name": "Cointelegraph",
+        "url": "https://cointelegraph.com/rss",
+        "description": "Cointelegraph covers fintech, blockchain and Bitcoin bringing you the latest crypto news and analyses on the future of money.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Bitcoinist",
+        "url": "https://bitcoinist.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "NewsBTC",
+        "url": "https://newsbtc.com/feed",
+        "description": "Bitcoin & Cryptocurrency News Today",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CryptoPotato",
+        "url": "https://cryptopotato.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "99Bitcoins",
+        "url": "https://99bitcoins.com/feed",
+        "description": "A non technical blog about Bitcoin - Tutorial, Reviews and Guides",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CryptoBriefing",
+        "url": "https://cryptobriefing.com/feed",
+        "description": "Bitcoin, Ethereum and the future of finance",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Crypto.News",
+        "url": "https://crypto.news/feed",
+        "description": "Latest Cryptocurrency News",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Bitcointe",
+        "url": "https://bitcointe.com/feed",
+        "description": "3XBET \u0e40\u0e27\u0e47\u0e1a\u0e1a\u0e32\u0e04\u0e32\u0e23\u0e48\u0e32\u0e2d\u0e2d\u0e19\u0e44\u0e25\u0e19\u0e4c\u0e17\u0e35\u0e48\u0e14\u0e35\u0e17\u0e35\u0e48\u0e2a\u0e38\u0e14 \u0e2d\u0e31\u0e19\u0e14\u0e31\u0e1a 1 \u0e02\u0e2d\u0e07\u0e40\u0e2d\u0e40\u0e0a\u0e35\u0e22",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "The Bitcoin News",
+        "url": "https://thebitcoinnews.com/feed",
+        "description": "TheBitcoinNews.com - Daily News about Bitcoin, Blockchain & Cryptocurrency",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "TronWeekly",
+        "url": "https://tronweekly.com/feed",
+        "description": "Crypto World News",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "E-Crypto News",
+        "url": "https://e-cryptonews.com/feed",
+        "description": "Exclusive Cryptocurrency and Blockchain News Portal",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CoinIdol",
+        "url": "https://coinidol.com/rss2",
+        "description": "CoinIdol.com - Bitcoin, Blockchain, Cryptocurrency and Technology News",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Cryptoverze",
+        "url": "https://cryptoverze.com/feed",
+        "description": "The Leading Cryptocurrency Community",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Trustnodes",
+        "url": "https://trustnodes.com/feed",
+        "description": "All the latest news.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Bitcoinik",
+        "url": "https://bitcoinik.com/feed",
+        "description": "Bitcoinik - Next Generation Bitcoin Media",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "BitDegree",
+        "url": "https://bitdegree.org/crypto/news/rss",
+        "description": "Track the most important crypto news alerts & trading signals. Get the most recent cryptocurrency news about Bitcoin, Ethereum & Altcoins.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "The Coins Post",
+        "url": "https://thecoinspost.com/feed",
+        "description": "The Coins Post: Latest Bitcoin and Crypto News",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Bitcoin & Ethereum News",
+        "url": "https://bitcoinethereumnews.com/feed",
+        "description": "Live Updated Worldwide News Related To Bitcoin, Ethereum, Crypto, Blockchain, Technology, Economy. Updated Every Minute. Available In All Languages.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "U.Today",
+        "url": "https://u.today/rss",
+        "description": "All Crypto News for Today",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Bitcoin.com",
+        "url": "https://news.bitcoin.com/feed",
+        "description": "Daily Bitcoin News",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Blockchain.News",
+        "url": "https://blockchain.news/rss",
+        "description": "Blockchain News brings you the most up-to-date coverage on blockchain, cryptocurrency, and fintech.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Crypto News Australia",
+        "url": "https://cryptonews.com.au/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CoinGeek",
+        "url": "https://coingeek.com/feed",
+        "description": "Blockchain News",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "BiteMyCoin",
+        "url": "https://bitemycoin.com/feed",
+        "description": "The World Of Cryptocurrency - News Portal With The Latest Updates",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "FullyCrypto",
+        "url": "https://fullycrypto.com/feed",
+        "description": "Your daily Crypto fix",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Cryptonews",
+        "url": "https://cryptonews.com/news/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Crypto Adventure",
+        "url": "https://cryptoadventure.com/feed",
+        "description": "Crypto Guides, News, Press, Bitcoin Live Prices & Data",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Crypto Breaking News",
+        "url": "https://cryptobreaking.com/feed",
+        "description": "Stay updated with real-time crypto news, blockchain trends, expert analysis, and insights on Bitcoin, Ethereum, DeFi, and the Web3 ecosystem.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Inside Bitcoins",
+        "url": "https://insidebitcoins.com/feed",
+        "description": "Search & Compare Brokers within Crypto, Forex & Stocks",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Coin Journal",
+        "url": "https://coinjournal.net/feed",
+        "description": "Keep your finger on the pulse of the fast-moving cryptocurrency sector with all the latest crypto news, analysis and reviews from CoinJournal",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Decrypt",
+        "url": "https://decrypt.co/feed",
+        "description": "What&#039;s new in crypto and the advent of the decentralized web.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Crypto Daily",
+        "url": "https://cryptodaily.co.uk/feed",
+        "description": "Let us guide you through the crypto world and find such things as the Best Crypto wallets, monitor what the crypto market are doing and get the crypto news.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "AllinCrypto",
+        "url": "https://allincrypto.com/feed",
+        "description": "Latest Crypto News & Price Analysis",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Cryptocoin Spy",
+        "url": "https://cryptocoinspy.com/feed",
+        "description": "The Latest Bitcoin and Cryptocurrency News",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CoinCentral",
+        "url": "https://coincentral.com/news/feed",
+        "description": "Your Bitcoin, Ethereum, and other Cryptocurrency HQ",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Crypto News Flash",
+        "url": "https://crypto-news-flash.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CoinPedia",
+        "url": "https://coinpedia.org/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Bitcoin Magazine",
+        "url": "https://bitcoinmagazine.com/.rss/full/",
+        "description": "Bitcoin News, Articles and Expert Insights",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CoinDesk",
+        "url": "https://www.coindesk.com/arc/outboundfeeds/rss/",
+        "description": "Leader in cryptocurrency, Bitcoin, Ethereum, XRP, blockchain, DeFi, digital finance and Web 3.0 news with analysis, video and live price updates.",
+        "update_frequency": "daily"
+      }
+    ],
+    "aggregator": [
+      {
+        "name": "BITRSS",
+        "url": "https://bitrss.com/rss.xml",
+        "description": "Search and Discover the latest Cryptocurrency Stories in Categories: Crypto News, Blockchain, Technology and more, from Top Leading Sources.",
+        "update_frequency": "daily"
+      }
+    ],
+    "blog": [
+      {
+        "name": "CoolWallet Blog",
+        "url": "https://coolwallet.io/blogs/blog.atom",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "ZebPay Blog",
+        "url": "https://zebpay.com/feed",
+        "description": "Buy Bitcoin and Cryptocurrency at India\u2019s Leading Exchange",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Coin Checkup Blog",
+        "url": "https://coincheckup.com/blog/feed",
+        "description": "The crypto research platform",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Bitfinex blog",
+        "url": "https://blog.bitfinex.com/feed",
+        "description": "Bitcoin, Litecoin and Ethereum Exchange and Margin Trading Platform",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Coinwink Blog",
+        "url": "https://coinwink.com/blog/feed",
+        "description": "News, Tips & Tricks for Bitcoin, Ethereum Crypto Alerts",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Medium Coinmonks",
+        "url": "https://medium.com/feed/coinmonks",
+        "description": "Coinmonks is a non-profit Crypto Educational Publication. Other Project\u200a\u2014\u200ahttps://coincodecap.com/ &amp; Email\u200a\u2014\u200agaurav@coincodecap.com - Medium",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "BitMEX Blog",
+        "url": "https://blog.bitmex.com/feed",
+        "description": "The official blog of BitMEX, the Bitcoin Mercantile Exchange.",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Cryptela Blog",
+        "url": "https://cryptela.com/blog-rss",
+        "description": "BTCNewz Blog RSS feed",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "BuyUcoin Blog",
+        "url": "https://buyucoin.com/crypto-labs/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CoinStats Blog",
+        "url": "https://coinstats.app/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CoinSutra",
+        "url": "https://coinsutra.com/blog/feed",
+        "description": "The Complete Guide to BitCoin & Altcoins",
+        "update_frequency": "daily"
+      }
+    ]
+  },
+  "settings": {
+    "default_timeout": 30,
+    "max_retries": 3,
+    "user_agent": "WawaBackTrader/1.0 (RSS Reader)",
+    "fetch_interval": 3600
+  }
+}

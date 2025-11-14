@@ -1,0 +1,1745 @@
+Skip to content
+logo
+Backtrader
+Datetime - Management
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Datetime - Management
+Datetime - Timers
+Datetime - Trading Calendars
+Automated Running
+Table of contents
+Operation with timezones
+Datetime Input
+Datetime output
+DateTime Management
+Up until release 1.5.0, backtrader used a direct approach to time management in that whatever datetime was calculated by data sources was simply used at face value.
+
+And the same for any user input like in the case of the parameter fromdate (or sessionstart) which can be given to any data source
+
+The approach was fine given the direct control over frozen data sources for backtesting. It was easy to assume that the input datetimes had already been taken care of before they entered the system.
+
+But with 1.5.0, live data sources are supported and this forces to take into account datetime management. Such management would not be needed if the following were always true:
+
+A trader in New York trades the ES-Mini. The time zone for both in US/Eastern (or one of the aliases)
+
+A trader in Berlin trades the DAX future. In this case for both the CET (or Europe/Berling) timezone applies
+
+The direct input-output datetime approach from above would work, becase the trader, in Berlin for example, could always do something like this:
+
+
+class Strategy(bt.Strategy):
+
+    def next(self):
+
+        # The DAX future opens at 08:00 CET
+        if self.data.datetime.time() < datetime.time(8, 30):
+            # don't operate until the market has been running 30 minutes
+            return  #
+The problem with the direct approach surfaces when the same trader in Berlin decides to trade the ES-Mini. Because the change to from DST happens at different point in time in the year and this causes the time difference to be out of sync a couple of weeks during the year. The following wouldn’t always work:
+
+
+class Strategy(bt.Strategy):
+
+    def next(self):
+
+        # The SPX opens at 09:30 US/Eastern all year long
+        # This is most of the year 15:30 CET
+        # But it is sometimes 16:30 CET or 14:30 CET if a DST switch on-off
+        # has happened in the USA and not in Europe
+
+        # That's why the code below is unreliable
+
+        if self.data.datetime.time() < datetime.time(16, 0):
+            # don't operate until the market has been running 30 minutes
+            return  #
+Operation with timezones
+To solve the aforementioned situations and still remain compatible with the direct input-output time approach, backtrader offers the end user the following
+
+Datetime Input
+As a default the platform will not touch the datetime provided by a data source
+
+The end-user can override this input by:
+
+Providing a tzinput parameter to the data source. This must be an object compatible with the datetime.tzinfo interface. Most likely the user will provide a pytz.timezone instance
+
+With this decision the time used internally by backtrader is considered to be in UTC-like format, ie:
+
+If the data source has already stored it in UTC format
+
+After a conversion through tzinput
+
+It’s not really UTC but it’s the reference for the user, hence UTC-like
+
+Datetime output
+If the data feed can automatically determine the timezone for the output, this will be the default
+
+This makes sense in the case of live-feeds and especially in use cases like the one in which a trader in Berlin (CET timezone), trades products with US/Eastern timezone.
+
+Because the trader gets always the right time and in the example above the opening time remains constant at 09:30 US/Eastern, rather than 15:30 CET most of the year, but sometimes 16:30 CET and sometimes 14:30 CET.
+
+If it cannot be determined, then the output will be whatever was determined during input (the UTC-like) time
+
+The end user can override and determine the actual timezone for the output
+
+Providing a tz parameter to the data source. This must be an object compatible with the datetime.tzinfo interface. Most likely the user will provide a pytz.timezone instance
+Note
+
+Input fromt the user like for example the parameters fromdate or sessionstart are expected to be in sync with the actual tz, be it automatically calculated by the data source, supplied by the user or left as default (None, which means direct input-output of datetime)
+
+With all that in mind let’s recall the Berlin trader, trading in US/Eastern:
+
+
+import pytz
+
+import bt
+
+data = bt.feeds.MyFeed('ES-Mini', tz=pytz.timezone('US/Eastern'))
+
+class Strategy(bt.Strategy):
+
+    def next(self):
+
+        # This will work all year round.
+        # The data source will return in the frame of the 'US/Eastern' time
+        # zone and the user is quoting '10:00' as reference time
+        # Because in the 'US/Eastern' timezone the SPX index always starts
+        # trading at 09:30, this will always work
+
+        if self.data.datetime.time() < datetime.time(10, 0):
+            # don't operate until the market has been running 30 minutes
+            return  #
+In the case of a data source which can automatically determine the output timezone:
+
+
+import bt
+
+data = bt.feeds.MyFeedAutoTZ('ES-Mini')
+
+class Strategy(bt.Strategy):
+
+    def next(self):
+
+        # This will work all year round.
+        # The data source will return in the frame of the 'US/Eastern' time
+        # zone and the user is quoting '10:00' as reference time
+        # Because in the 'US/Eastern' timezone the SPX index always starts
+        # trading at 09:30, this will always work
+
+        if self.data.datetime.time() < datetime.time(10, 0):
+            # don't operate until the market has been running 30 minutes
+            return  #
+Even less work than above.
+
+Obviously MyFeed and MyFeedAuto in the example above are just dummy names.
+
+Note
+
+At the time of writing the only data source included in the distribution which can automatically determine the timezone is the one connecting to Interactive Brokers
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Datetime - Timers
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Datetime - Management
+Datetime - Timers
+Datetime - Trading Calendars
+Automated Running
+Table of contents
+Options
+Usage pattern
+Adding timers - Via Strategy
+Adding timers - Via Cerebro
+When are timers called
+If cheat=False
+If cheat=True
+Running with daily bars
+Running with 5-minute bars
+Additional scenarios
+Parameters to add_timer
+Sample usage scheduled.py
+Sample usage scheduled-min.py
+Sample source scheduled.py
+Sample source scheduled-min.py
+Timers
+Release 1.9.44.116 added timers to the arsenal of tools available in backtrader. This functionality allows to get a call back to the notify_timer (available in Cerebro and Strategy) at given points in time, with a fine grained end-user control.
+
+Note
+
+Some corrections have been made in 1.9.46.116
+
+Options
+Timer based in absolute time input or with regards to session start/end times
+
+Timezone specification for the time specification, be it directly or via pytz compatible objects or via data feed session end times
+
+Starting offset with regards to the specified time
+
+Repetitions intervals
+
+Weekdays filter (with carry over option)
+
+Monthdays filter (with carry over option)
+
+Custom callback filter
+
+Usage pattern
+Both in Cerebro and Strategy subclasses the timer callback will be received in the following method.
+
+
+def notify_timer(self, timer, when, *args, **kwargs):
+    '''Receives a timer notification where ``timer`` is the timer which was
+    returned by ``add_timer``, and ``when`` is the calling time. ``args``
+    and ``kwargs`` are any additional arguments passed to ``add_timer``
+
+    The actual ``when`` time can be later, but the system may have not be
+    able to call the timer before. This value is the timer value and not the
+    system time.
+    '''
+Adding timers - Via Strategy
+Done with the method
+
+
+def add_timer(self, when,
+              offset=datetime.timedelta(), repeat=datetime.timedelta(),
+              weekdays=[], weekcarry=False,
+              monthdays=[], monthcarry=True,
+              allow=None,
+              tzdata=None, cheat=False,
+              *args, **kwargs):
+    '''
+It returns the created Timer instance.
+
+See below for an explanation of the parameters.
+
+Adding timers - Via Cerebro
+Done with the same method and just the addition of the parameter strats. If set to True the timer will not only be notified to the cerebro, it will also be notified to all strategies running in the system.
+
+
+def add_timer(self, when,
+              offset=datetime.timedelta(), repeat=datetime.timedelta(),
+              weekdays=[], weekcarry=False,
+              monthdays=[], monthcarry=True,
+              allow=None,
+              tzdata=None, cheat=False, strats=False,
+              *args, **kwargs):
+    '''
+It returns the created Timer instance.
+
+When are timers called
+If cheat=False
+This is the default. In this case a timer will be called:
+
+After the data feeds have loaded the new values for the current bar
+
+After the broker has evaluated orders and recalculated the portfolio value
+
+Before indicators have been recalculated (because this is triggered by the strategies)
+
+Before any next method of any strategy is called
+
+If cheat=True
+In this case a timer will be called:
+
+After the data feeds have loaded the new values for the current bar
+
+Before the broker has evaluated orders and recalculated the portfolio value
+
+And consequently before indicators have been recalculated and next method of any strategy is called
+
+Which allows for example the following scenario with daily bars:
+
+Before the new bar is evaluated by the broker the timer is called
+
+The indicators have the value from the previous day at the close and can be used to generate an entry/exit signal (or a flag may have been set during the last evaluation of next)
+
+Because the new prices are available, the stake can be calculated using the opening price. This assumes that one is for example getting a good indication about the open from watching the opening auction.
+
+Running with daily bars
+The sample scheduled.py defaults to running with the standard daily bars available in the backtrader distribution. The parameters to the strategy
+
+
+class St(bt.Strategy):
+    params = dict(
+        when=bt.timer.SESSION_START,
+        timer=True,
+        cheat=False,
+        offset=datetime.timedelta(),
+        repeat=datetime.timedelta(),
+        weekdays=[],
+    )
+And the data has the following session times:
+
+start: 09:00
+
+end: 17:30
+
+Running with just a time
+
+
+$ ./scheduled.py --strat when='datetime.time(15,30)'
+
+strategy notify_timer with tid 0, when 2005-01-03 15:30:00 cheat False
+1, 2005-01-03 17:30:00, Week 1, Day 1, O 2952.29, H 2989.61, L 2946.8, C 2970.02
+strategy notify_timer with tid 0, when 2005-01-04 15:30:00 cheat False
+2, 2005-01-04 17:30:00, Week 1, Day 2, O 2969.78, H 2979.88, L 2961.14, C 2971.12
+strategy notify_timer with tid 0, when 2005-01-05 15:30:00 cheat False
+3, 2005-01-05 17:30:00, Week 1, Day 3, O 2969.0, H 2969.0, L 2942.69, C 2947.19
+strategy notify_timer with tid 0, when 2005-01-06 15:30:00 cheat False
+...
+As specified the timer is ticking at 15:30. No surprises there. Let’s add an offset of 30 minutes.
+
+
+$ ./scheduled.py --strat when='datetime.time(15,30)',offset='datetime.timedelta(minutes=30)'
+
+strategy notify_timer with tid 0, when 2005-01-03 16:00:00 cheat False
+1, 2005-01-03 17:30:00, Week 1, Day 1, O 2952.29, H 2989.61, L 2946.8, C 2970.02
+strategy notify_timer with tid 0, when 2005-01-04 16:00:00 cheat False
+2, 2005-01-04 17:30:00, Week 1, Day 2, O 2969.78, H 2979.88, L 2961.14, C 2971.12
+strategy notify_timer with tid 0, when 2005-01-05 16:00:00 cheat False
+...
+And the time has changed from 15:30 to 16:00 for the timer. No surprises. Let’s do the same but referencing the start of the session.
+
+
+$ ./scheduled.py --strat when='bt.timer.SESSION_START',offset='datetime.timedelta(minutes=30)'
+
+strategy notify_timer with tid 0, when 2005-01-03 09:30:00 cheat False
+1, 2005-01-03 17:30:00, Week 1, Day 1, O 2952.29, H 2989.61, L 2946.8, C 2970.02
+strategy notify_timer with tid 0, when 2005-01-04 09:30:00 cheat False
+2, 2005-01-04 17:30:00, Week 1, Day 2, O 2969.78, H 2979.88, L 2961.14, C 2971.12
+...
+Et voilá! The time at which the callback is called is 09:30. And the session start, see above, is 09:00. This gives the ability to simply say that one wants to execute an action 30 minutes after the start of the session.
+
+Let’s add a repetition:
+
+
+$ ./scheduled.py --strat when='bt.timer.SESSION_START',offset='datetime.timedelta(minutes=30)',repeat='datetime.timedelta(minutes=30)'
+
+strategy notify_timer with tid 0, when 2005-01-03 09:30:00 cheat False
+1, 2005-01-03 17:30:00, Week 1, Day 1, O 2952.29, H 2989.61, L 2946.8, C 2970.02
+strategy notify_timer with tid 0, when 2005-01-04 09:30:00 cheat False
+2, 2005-01-04 17:30:00, Week 1, Day 2, O 2969.78, H 2979.88, L 2961.14, C 2971.12
+strategy notify_timer with tid 0, when 2005-01-05 09:30:00 cheat False
+...
+There is no repetition. The reason being that the resolution of the prices is daily. The timer is called for the 1st time at 09:30 like in the previous example. But when the system get the next batch of prices, they are happening on the next day. And the timer can only, obviously, be called once. A lower resolution is needed.
+
+But before moving on to a lower resolution, let’s cheat by having the timer called before the end of the session.
+
+
+$ ./scheduled.py --strat when='bt.timer.SESSION_START',cheat=True
+
+strategy notify_timer with tid 1, when 2005-01-03 09:00:00 cheat True
+-- 2005-01-03 Create buy order
+strategy notify_timer with tid 0, when 2005-01-03 09:00:00 cheat False
+1, 2005-01-03 17:30:00, Week 1, Day 1, O 2952.29, H 2989.61, L 2946.8, C 2970.02
+strategy notify_timer with tid 1, when 2005-01-04 09:00:00 cheat True
+strategy notify_timer with tid 0, when 2005-01-04 09:00:00 cheat False
+-- 2005-01-04 Buy Exec @ 2969.78
+2, 2005-01-04 17:30:00, Week 1, Day 2, O 2969.78, H 2979.88, L 2961.14, C 2971.12
+strategy notify_timer with tid 1, when 2005-01-05 09:00:00 cheat True
+strategy notify_timer with tid 0, when 2005-01-05 09:00:00 cheat False
+...
+The strategy adds a 2nd timer with cheat=True. This is added 2nd and will therefore received the 2nd tid (timer id) which is 1 (see in the above examples that the assigned tid was 0)
+
+And 1 is called before 0, because that timer is cheating and is being called before many events in the system happen (see above for the explanation)
+
+Due to the daily resolution of the prices it doesn’t make much of a difference except that:
+
+The strategy also issues an order right before the open … and it is being matched with the opening price the next day
+
+This, even if cheating by acting before the open, is still the normal behavior, because cheating-on-open has also not been activated in the broker.
+
+The same but with coo=True for the broker
+
+
+$ ./scheduled.py --strat when='bt.timer.SESSION_START',cheat=True --broker coo=True
+
+strategy notify_timer with tid 1, when 2005-01-03 09:00:00 cheat True
+-- 2005-01-03 Create buy order
+strategy notify_timer with tid 0, when 2005-01-03 09:00:00 cheat False
+-- 2005-01-03 Buy Exec @ 2952.29
+1, 2005-01-03 17:30:00, Week 1, Day 1, O 2952.29, H 2989.61, L 2946.8, C 2970.02
+strategy notify_timer with tid 1, when 2005-01-04 09:00:00 cheat True
+strategy notify_timer with tid 0, when 2005-01-04 09:00:00 cheat False
+2, 2005-01-04 17:30:00, Week 1, Day 2, O 2969.78, H 2979.88, L 2961.14, C 2971.12
+strategy notify_timer with tid 1, when 2005-01-05 09:00:00 cheat True
+strategy notify_timer with tid 0, when 2005-01-05 09:00:00 cheat False
+...
+And something has changed.
+
+The order is issued on 2005-01-03 in the cheating timer
+
+The order is executed on 2005-01-03 with the opening price
+
+Effectively like if one had acted on the opening auction price seconds before the real opening of the market.
+
+Running with 5-minute bars
+The sample scheduled-min.py defaults to running with the standard 5-minute bars available in the backtrader distribution. The parameters to the strategy are extended to include monthdays and the carry options
+
+
+class St(bt.Strategy):
+    params = dict(
+        when=bt.timer.SESSION_START,
+        timer=True,
+        cheat=False,
+        offset=datetime.timedelta(),
+        repeat=datetime.timedelta(),
+        weekdays=[],
+        weekcarry=False,
+        monthdays=[],
+        monthcarry=True,
+    )
+The data has the same session times:
+
+start: 09:00
+
+end: 17:30
+
+Let’s do some experiments. First a single timer.
+
+
+$ ./scheduled-min.py --strat when='datetime.time(15, 30)'
+
+1, 2006-01-02 09:05:00, Week 1, Day 1, O 3578.73, H 3587.88, L 3578.73, C 3582.99
+2, 2006-01-02 09:10:00, Week 1, Day 1, O 3583.01, H 3588.4, L 3583.01, C 3588.03
+...
+77, 2006-01-02 15:25:00, Week 1, Day 1, O 3599.07, H 3599.68, L 3598.47, C 3599.68
+strategy notify_timer with tid 0, when 2006-01-02 15:30:00 cheat False
+78, 2006-01-02 15:30:00, Week 1, Day 1, O 3599.64, H 3599.73, L 3599.0, C 3599.67
+...
+179, 2006-01-03 15:25:00, Week 1, Day 2, O 3634.72, H 3635.0, L 3634.06, C 3634.87
+strategy notify_timer with tid 0, when 2006-01-03 15:30:00 cheat False
+180, 2006-01-03 15:30:00, Week 1, Day 2, O 3634.81, H 3634.89, L 3634.04, C 3634.23
+...
+The timer kicks in as requested at 15:30. The log shows how it does that during the 1st two days.
+
+Adding a repeat of 15 minutes to the mix
+
+
+$ ./scheduled-min.py --strat when='datetime.time(15, 30)',repeat='datetime.timedelta(minutes=15)'
+
+...
+74, 2006-01-02 15:10:00, Week 1, Day 1, O 3596.12, H 3596.63, L 3595.92, C 3596.63
+75, 2006-01-02 15:15:00, Week 1, Day 1, O 3596.36, H 3596.65, L 3596.19, C 3596.65
+76, 2006-01-02 15:20:00, Week 1, Day 1, O 3596.53, H 3599.13, L 3596.12, C 3598.9
+77, 2006-01-02 15:25:00, Week 1, Day 1, O 3599.07, H 3599.68, L 3598.47, C 3599.68
+strategy notify_timer with tid 0, when 2006-01-02 15:30:00 cheat False
+78, 2006-01-02 15:30:00, Week 1, Day 1, O 3599.64, H 3599.73, L 3599.0, C 3599.67
+79, 2006-01-02 15:35:00, Week 1, Day 1, O 3599.61, H 3600.29, L 3599.52, C 3599.92
+80, 2006-01-02 15:40:00, Week 1, Day 1, O 3599.96, H 3602.06, L 3599.76, C 3602.05
+strategy notify_timer with tid 0, when 2006-01-02 15:45:00 cheat False
+81, 2006-01-02 15:45:00, Week 1, Day 1, O 3601.97, H 3602.07, L 3601.45, C 3601.83
+82, 2006-01-02 15:50:00, Week 1, Day 1, O 3601.74, H 3602.8, L 3601.63, C 3602.8
+83, 2006-01-02 15:55:00, Week 1, Day 1, O 3602.53, H 3602.74, L 3602.33, C 3602.61
+strategy notify_timer with tid 0, when 2006-01-02 16:00:00 cheat False
+84, 2006-01-02 16:00:00, Week 1, Day 1, O 3602.58, H 3602.75, L 3601.81, C 3602.14
+85, 2006-01-02 16:05:00, Week 1, Day 1, O 3602.16, H 3602.16, L 3600.86, C 3600.96
+86, 2006-01-02 16:10:00, Week 1, Day 1, O 3601.2, H 3601.49, L 3600.94, C 3601.27
+...
+strategy notify_timer with tid 0, when 2006-01-02 17:15:00 cheat False
+99, 2006-01-02 17:15:00, Week 1, Day 1, O 3603.96, H 3603.96, L 3602.89, C 3603.79
+100, 2006-01-02 17:20:00, Week 1, Day 1, O 3603.94, H 3605.95, L 3603.87, C 3603.91
+101, 2006-01-02 17:25:00, Week 1, Day 1, O 3604.0, H 3604.76, L 3603.85, C 3604.64
+strategy notify_timer with tid 0, when 2006-01-02 17:30:00 cheat False
+102, 2006-01-02 17:30:00, Week 1, Day 1, O 3604.06, H 3604.41, L 3603.95, C 3604.33
+103, 2006-01-03 09:05:00, Week 1, Day 2, O 3604.08, H 3609.6, L 3604.08, C 3609.6
+104, 2006-01-03 09:10:00, Week 1, Day 2, O 3610.34, H 3617.31, L 3610.34, C 3617.31
+105, 2006-01-03 09:15:00, Week 1, Day 2, O 3617.61, H 3617.87, L 3616.03, C 3617.51
+106, 2006-01-03 09:20:00, Week 1, Day 2, O 3617.24, H 3618.86, L 3616.09, C 3618.42
+...
+179, 2006-01-03 15:25:00, Week 1, Day 2, O 3634.72, H 3635.0, L 3634.06, C 3634.87
+strategy notify_timer with tid 0, when 2006-01-03 15:30:00 cheat False
+180, 2006-01-03 15:30:00, Week 1, Day 2, O 3634.81, H 3634.89, L 3634.04, C 3634.23
+...
+As expected the 1st call is triggered at 15:30 and then starts repeating every 15 minutes until the end of the session at 17:30. When the new session kicks in, the timer has been reset to 15:30 again.
+
+And now with cheating before the session start
+
+
+$ ./scheduled-min.py --strat when='bt.timer.SESSION_START',cheat=True
+
+strategy notify_timer with tid 1, when 2006-01-02 09:00:00 cheat True
+-- 2006-01-02 09:05:00 Create buy order
+strategy notify_timer with tid 0, when 2006-01-02 09:00:00 cheat False
+1, 2006-01-02 09:05:00, Week 1, Day 1, O 3578.73, H 3587.88, L 3578.73, C 3582.99
+-- 2006-01-02 09:10:00 Buy Exec @ 3583.01
+2, 2006-01-02 09:10:00, Week 1, Day 1, O 3583.01, H 3588.4, L 3583.01, C 3588.03
+...
+Order creation is t 09:05:00 and execution at 09:10:00 because the broker is not in cheat-on-open mode. Let’s set it …
+
+
+$ ./scheduled-min.py --strat when='bt.timer.SESSION_START',cheat=True --broker coo=True
+
+strategy notify_timer with tid 1, when 2006-01-02 09:00:00 cheat True
+-- 2006-01-02 09:05:00 Create buy order
+strategy notify_timer with tid 0, when 2006-01-02 09:00:00 cheat False
+-- 2006-01-02 09:05:00 Buy Exec @ 3578.73
+1, 2006-01-02 09:05:00, Week 1, Day 1, O 3578.73, H 3587.88, L 3578.73, C 3582.99
+2, 2006-01-02 09:10:00, Week 1, Day 1, O 3583.01, H 3588.4, L 3583.01, C 3588.03
+...
+And the issuing time and execution time are 09:05:00 with the execution price being the opening price at 09:05:00.
+
+Additional scenarios
+Timers allow specifying on which days they have to be executed by passing a list of days (integers following the iso spec, where Mon=1 and Sun=7) as in
+
+weekdays=[5] which would ask for the timer to only be valid on Fridays
+
+In case a Friday is a non-trading day and the timer should kick-in on the next trading day, one can add weekcarry=True
+
+Similar to it, one can decide to act on the 15th day of each month with:
+
+monthdays=[15]
+
+In case the 15th happens to be non-trading day and the timer should kick-in on the next trading day, one can add monthcarry=True
+
+There isn’t an implementation for things like: the 3rd Friday of March, June, September and December (futures/options expirations), but there is a possibility to implement rules by passing:
+
+allow=callable where the callable accepts datetime.date instance. Notice this is not a datetime.datetime instance, because the allow callable is only meant to decide if a given day is suitable for timers or not.
+
+To implement something like the rule laid out above:
+
+
+class FutOpExp(object):
+    def __init__(self):
+        self.fridays = 0
+        self.curmonth = -1
+
+    def __call__(self, d):
+        _, _, isowkday = d.isocalendar()
+
+        if d.month != self.curmonth:
+            self.curmonth = d.month
+            self.fridays = 0
+
+        # Mon=1 ... Sun=7
+        if isowkday == 5 and self.curmonth in [3, 6, 9, 12]:
+            self.fridays += 1
+
+            if self.friday == 3:  # 3rd Friday
+                return True  # timer allowed
+
+        return False  # timer disallowed
+And one would pass allow=FutOpeExp() to the creation of the timer
+
+This would allow a timer to kick in on the 3rd Friday of those months and may be close positions before the futures expire.
+
+Parameters to add_timer
+
+* `when`: can be
+
+  * `datetime.time` instance (see below `tzdata`)
+
+  * `bt.timer.SESSION_START` to reference a session start
+
+  * `bt.timer.SESSION_END` to reference a session end
+offset which must be a datetime.timedelta instance
+
+Used to offset the value when. It has a meaningful use in combination with SESSION_START and SESSION_END, to indicated things like a timer being called 15 minutes after the session start.
+
+repeat which must be a datetime.timedelta instance
+Indicates if after a 1st call, further calls will be scheduled within the same session at the scheduled repeat delta
+
+Once the timer goes over the end of the session it is reset to the original value for when
+
+weekdays: a sorted iterable with integers indicating on which days (iso codes, Monday is 1, Sunday is 7) the timers can be actually invoked
+If not specified, the timer will be active on all days
+
+weekcarry (default: False). If True and the weekday was not seen (ex: trading holiday), the timer will be executed on the next day (even if in a new week)
+
+monthdays: a sorted iterable with integers indicating on which days of the month a timer has to be executed. For example always on day 15 of the month
+
+If not specified, the timer will be active on all days
+
+monthcarry (default: True). If the day was not seen (weekend, trading holiday), the timer will be executed on the next available day.
+
+allow (default: None). A callback which receives a datetime.date` instance and returns True if the date is allowed for timers or else returns False
+
+tzdata which can be either None (default), a pytz instance or a data feed instance.
+
+None: when is interpreted at face value (which translates to handling it as if it where UTC even if it’s not)
+
+pytz instance: when will be interpreted as being specified in the local time specified by the timezone instance.
+
+data feed instance: when will be interpreted as being specified in the local time specified by the tz parameter of the data feed instance.
+
+!!! note
+
+
+  If `when` is either `SESSION_START` or `SESSION_END` and `tzdata` is
+  `None`, the 1st *data feed* in the system (aka `self.data0`) will be
+  used as the reference to find out the session times.
+strats (default: False) call also the notify_timer of strategies
+
+cheat (default False) if True the timer will be called before the broker has a chance to evaluate the orders. This opens the chance to issue orders based on opening price for example right before the session starts
+
+*args: any extra args will be passed to notify_timer
+
+**kwargs: any extra kwargs will be passed to notify_timer
+
+Sample usage scheduled.py
+
+$ ./scheduled.py --help
+usage: scheduled.py [-h] [--data0 DATA0] [--fromdate FROMDATE]
+                    [--todate TODATE] [--cerebro kwargs] [--broker kwargs]
+                    [--sizer kwargs] [--strat kwargs] [--plot [kwargs]]
+
+Sample Skeleton
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --data0 DATA0        Data to read in (default:
+                       ../../datas/2005-2006-day-001.txt)
+  --fromdate FROMDATE  Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --todate TODATE      Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --cerebro kwargs     kwargs in key=value format (default: )
+  --broker kwargs      kwargs in key=value format (default: )
+  --sizer kwargs       kwargs in key=value format (default: )
+  --strat kwargs       kwargs in key=value format (default: )
+  --plot [kwargs]      kwargs in key=value format (default: )
+Sample usage scheduled-min.py
+
+$ ./scheduled-min.py --help
+usage: scheduled-min.py [-h] [--data0 DATA0] [--fromdate FROMDATE]
+                        [--todate TODATE] [--cerebro kwargs] [--broker kwargs]
+                        [--sizer kwargs] [--strat kwargs] [--plot [kwargs]]
+
+Timer Test Intraday
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --data0 DATA0        Data to read in (default: ../../datas/2006-min-005.txt)
+  --fromdate FROMDATE  Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --todate TODATE      Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --cerebro kwargs     kwargs in key=value format (default: )
+  --broker kwargs      kwargs in key=value format (default: )
+  --sizer kwargs       kwargs in key=value format (default: )
+  --strat kwargs       kwargs in key=value format (default: )
+  --plot [kwargs]      kwargs in key=value format (default: )
+Sample source scheduled.py
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class St(bt.Strategy):
+    params = dict(
+        when=bt.timer.SESSION_START,
+        timer=True,
+        cheat=False,
+        offset=datetime.timedelta(),
+        repeat=datetime.timedelta(),
+        weekdays=[],
+    )
+
+    def __init__(self):
+        bt.ind.SMA()
+        if self.p.timer:
+            self.add_timer(
+                when=self.p.when,
+                offset=self.p.offset,
+                repeat=self.p.repeat,
+                weekdays=self.p.weekdays,
+            )
+        if self.p.cheat:
+            self.add_timer(
+                when=self.p.when,
+                offset=self.p.offset,
+                repeat=self.p.repeat,
+                cheat=True,
+            )
+
+        self.order = None
+
+    def prenext(self):
+        self.next()
+
+    def next(self):
+        _, isowk, isowkday = self.datetime.date().isocalendar()
+        txt = '{}, {}, Week {}, Day {}, O {}, H {}, L {}, C {}'.format(
+            len(self), self.datetime.datetime(),
+            isowk, isowkday,
+            self.data.open[0], self.data.high[0],
+            self.data.low[0], self.data.close[0])
+
+        print(txt)
+
+    def notify_timer(self, timer, when, *args, **kwargs):
+        print('strategy notify_timer with tid {}, when {} cheat {}'.
+              format(timer.p.tid, when, timer.p.cheat))
+
+        if self.order is None and timer.p.cheat:
+            print('-- {} Create buy order'.format(self.data.datetime.date()))
+            self.order = self.buy()
+
+    def notify_order(self, order):
+        if order.status == order.Completed:
+            print('-- {} Buy Exec @ {}'.format(
+                self.data.datetime.date(), order.executed.price))
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    kwargs = dict(
+        timeframe=bt.TimeFrame.Days,
+        compression=1,
+        sessionstart=datetime.time(9, 0),
+        sessionend=datetime.time(17, 30),
+    )
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    # Data feed
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **kwargs)
+    cerebro.adddata(data0)
+
+    # Broker
+    cerebro.broker = bt.brokers.BackBroker(**eval('dict(' + args.broker + ')'))
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Strategy
+    cerebro.addstrategy(St, **eval('dict(' + args.strat + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'Sample Skeleton'
+        )
+    )
+
+    parser.add_argument('--data0', default='../../datas/2005-2006-day-001.txt',
+                        required=False, help='Data to read in')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+Sample source scheduled-min.py
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class St(bt.Strategy):
+    params = dict(
+        when=bt.timer.SESSION_START,
+        timer=True,
+        cheat=False,
+        offset=datetime.timedelta(),
+        repeat=datetime.timedelta(),
+        weekdays=[],
+        weekcarry=False,
+        monthdays=[],
+        monthcarry=True,
+    )
+
+    def __init__(self):
+        bt.ind.SMA()
+        if self.p.timer:
+            self.add_timer(
+                when=self.p.when,
+                offset=self.p.offset,
+                repeat=self.p.repeat,
+                weekdays=self.p.weekdays,
+                weekcarry=self.p.weekcarry,
+                monthdays=self.p.monthdays,
+                monthcarry=self.p.monthcarry,
+                # tzdata=self.data0,
+            )
+        if self.p.cheat:
+            self.add_timer(
+                when=self.p.when,
+                offset=self.p.offset,
+                repeat=self.p.repeat,
+                weekdays=self.p.weekdays,
+                weekcarry=self.p.weekcarry,
+                monthdays=self.p.monthdays,
+                monthcarry=self.p.monthcarry,
+                # tzdata=self.data0,
+                cheat=True,
+            )
+
+        self.order = None
+
+    def prenext(self):
+        self.next()
+
+    def next(self):
+        _, isowk, isowkday = self.datetime.date().isocalendar()
+        txt = '{}, {}, Week {}, Day {}, O {}, H {}, L {}, C {}'.format(
+            len(self), self.datetime.datetime(),
+            isowk, isowkday,
+            self.data.open[0], self.data.high[0],
+            self.data.low[0], self.data.close[0])
+
+        print(txt)
+
+    def notify_timer(self, timer, when, *args, **kwargs):
+        print('strategy notify_timer with tid {}, when {} cheat {}'.
+              format(timer.p.tid, when, timer.p.cheat))
+
+        if self.order is None and timer.params.cheat:
+            print('-- {} Create buy order'.format(
+                self.data.datetime.datetime()))
+            self.order = self.buy()
+
+    def notify_order(self, order):
+        if order.status == order.Completed:
+            print('-- {} Buy Exec @ {}'.format(
+                self.data.datetime.datetime(), order.executed.price))
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    kwargs = dict(
+        timeframe=bt.TimeFrame.Minutes,
+        compression=5,
+        sessionstart=datetime.time(9, 0),
+        sessionend=datetime.time(17, 30),
+    )
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    # Data feed
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **kwargs)
+    cerebro.adddata(data0)
+
+    # Broker
+    cerebro.broker = bt.brokers.BackBroker(**eval('dict(' + args.broker + ')'))
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Strategy
+    cerebro.addstrategy(St, **eval('dict(' + args.strat + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'Timer Test Intraday'
+        )
+    )
+
+    parser.add_argument('--data0', default='../../datas/2006-min-005.txt',
+                        required=False, help='Data to read in')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Datetime - Trading Calendars
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Datetime - Management
+Datetime - Timers
+Datetime - Trading Calendars
+Automated Running
+Table of contents
+Trading Calendar Interface
+Implementations
+PandasMarketCalendar
+TradingCalendar
+Usage pattern
+Global Trading Calendar
+Per data-feed
+Examples
+Daily to Weekly
+Minutes to Daily
+Extra bonus for the strategy
+Sample usage (tcal.py)
+Sample usage (tcal-intra.py)
+Sample Code (tcal.py)
+Sample Code (tcal-intra.py)
+Trading Calendar
+Release 1.9.42.116 adds support for Trading Calendars. This is useful when resampling in for example the following scenarios:
+
+Daily to Weekly resampling can now deliver the weekly bar together with the last bar of the week.
+
+This is so because the trading calendar identifies the next trading day and the last trading day of the week can be identified in advance
+
+Sub-daily to Daily resampling when the end of the session is not the regular one (which can already be specified to the data feed)
+
+Trading Calendar Interface
+There is a base class TradingCalendarBase which is used as a base for any trading calendar. It defines two (2) methods which have to be overridden:
+
+
+class TradingCalendarBase(with_metaclass(MetaParams, object)):
+    def _nextday(self, day):
+        '''
+        Returns the next trading day (datetime/date instance) after ``day``
+        (datetime/date instance) and the isocalendar components
+
+        The return value is a tuple with 2 components: (nextday, (y, w, d))
+        where (y, w, d)
+        '''
+        raise NotImplementedError
+
+    def schedule(self, day):
+        '''
+        Returns a tuple with the opening and closing times (``datetime.time``)
+        for the given ``date`` (``datetime/date`` instance)
+        '''
+        raise NotImplementedError
+Implementations
+PandasMarketCalendar
+This implementation is based on a neat package which is a spin-off of initial functionality available from Quantopian. The packages is at: pandas_market_calendars and can be easily installed:
+
+
+pip install pandas_market_calendars
+The implementation features the following interface:
+
+
+class PandasMarketCalendar(TradingCalendarBase):
+    '''
+    Wrapper of ``pandas_market_calendars`` for a trading calendar. The package
+    ``pandas_market_calendar`` must be installed
+
+    Params:
+
+      - ``calendar`` (default ``None``)
+
+        The param ``calendar`` accepts the following:
+
+        - string: the name of one of the calendars supported, for example
+          `NYSE`. The wrapper will attempt to get a calendar instance
+
+        - calendar instance: as returned by ``get_calendar('NYSE')``
+
+      - ``cachesize`` (default ``365``)
+
+        Number of days to cache in advance for lookup
+
+    See also:
+
+      - https://github.com/rsheftel/pandas_market_calendars
+
+      - http://pandas-market-calendars.readthedocs.io/
+
+    '''
+    params = (
+        ('calendar', None),  # A pandas_market_calendars instance or exch name
+        ('cachesize', 365),  # Number of days to cache in advance
+    )
+TradingCalendar
+This implementation allows to construct a calendar using self-gathered information by specifying the holidays, early days, non-trading weekdays and the opening and closing session times:
+
+
+class TradingCalendar(TradingCalendarBase):
+    '''
+    Wrapper of ``pandas_market_calendars`` for a trading calendar. The package
+    ``pandas_market_calendar`` must be installed
+
+    Params:
+
+      - ``open`` (default ``time.min``)
+
+        Regular start of the session
+
+      - ``close`` (default ``time.max``)
+
+        Regular end of the session
+
+      - ``holidays`` (default ``[]``)
+
+        List of non-trading days (``datetime.datetime`` instances)
+
+      - ``earlydays`` (default ``[]``)
+
+        List of tuples determining the date and opening/closing times of days
+        which do not conform to the regular trading hours where each tuple has
+        (``datetime.datetime``, ``datetime.time``, ``datetime.time`` )
+
+      - ``offdays`` (default ``ISOWEEKEND``)
+
+        A list of weekdays in ISO format (Monday: 1 -> Sunday: 7) in which the
+        market doesn't trade. This is usually Saturday and Sunday and hence the
+        default
+
+    '''
+    params = (
+        ('open', time.min),
+        ('close', _time_max),
+        ('holidays', []),  # list of non trading days (date)
+        ('earlydays', []),  # list of tuples (date, opentime, closetime)
+        ('offdays', ISOWEEKEND),  # list of non trading (isoweekdays)
+    )
+Usage pattern
+Global Trading Calendar
+Via Cerebro one can add a global calendar which is the default for all data feeds, unless one is specified for the data feed:
+
+
+def addcalendar(self, cal):
+    '''Adds a global trading calendar to the system. Individual data feeds
+    may have separate calendars which override the global one
+
+    ``cal`` can be an instance of ``TradingCalendar`` a string or an
+    instance of ``pandas_market_calendars``. A string will be will be
+    instantiated as a ``PandasMarketCalendar`` (which needs the module
+    ``pandas_market_calendar`` installed in the system.
+
+    If a subclass of `TradingCalendarBase` is passed (not an instance) it
+    will be instantiated
+    '''
+Per data-feed
+By specifying a calendar parameter following the same conventions as described above in addcalendar.
+
+For example:
+
+
+...
+data = bt.feeds.YahooFinanceData(dataname='YHOO', calendar='NYSE', ...)
+cerebro.adddata(data)
+...
+Examples
+Daily to Weekly
+Let’s have a look at a sample run of the code that can be found below. In 2016, Easter Friday (2016-03-25) was a holiday also in the NYSE. If the sample is run with no trading calendar, let’s see what happens around that date.
+
+In this case the resampling is being done from daily to weekly (using YHOO and the daily data for 2016):
+
+
+$ ./tcal.py
+
+...
+Strategy len 56 datetime 2016-03-23 Data0 len 56 datetime 2016-03-23 Data1 len 11 datetime 2016-03-18
+Strategy len 57 datetime 2016-03-24 Data0 len 57 datetime 2016-03-24 Data1 len 11 datetime 2016-03-18
+Strategy len 58 datetime 2016-03-28 Data0 len 58 datetime 2016-03-28 Data1 len 12 datetime 2016-03-24
+...
+In this output, the 1st date is the accounting made by the strategy. The 2nd date is that of the daily
+
+The week ends, as expected, on 2016-03-24 (Thursday), but without a trading calendar the resampling code cannot know it and the resampled bar with date 2016-03-18 (the week before) is delivered. When the trading moves on to 2016-03-28 (Monday), the resampler detects the week change and delivers a resampled bar for 2016-03-24.
+
+The same but run with a PandasMarketCalendar for NYSE (and adding a plot)
+
+
+$ ./tcal.py --plot --pandascal NYSE
+
+...
+Strategy len 56 datetime 2016-03-23 Data0 len 56 datetime 2016-03-23 Data1 len 11 datetime 2016-03-18
+Strategy len 57 datetime 2016-03-24 Data0 len 57 datetime 2016-03-24 Data1 len 12 datetime 2016-03-24
+Strategy len 58 datetime 2016-03-28 Data0 len 58 datetime 2016-03-28 Data1 len 12 datetime 2016-03-24
+...
+There is a change! Thanks to the calendar the resampler knows the week is over on 2016-03-24 and delivers the corresponding weekly resampled bar for 2016-03-24 on the same day.
+
+And the plot.
+
+image
+
+Since the information may not necessarily be available for each and every market, one can also craft the calendar. For the NYSE and 2016 it looks like:
+
+
+class NYSE_2016(bt.TradingCalendar):
+    params = dict(
+        holidays=[
+            datetime.date(2016, 1, 1),
+            datetime.date(2016, 1, 18),
+            datetime.date(2016, 2, 15),
+            datetime.date(2016, 3, 25),
+            datetime.date(2016, 5, 30),
+            datetime.date(2016, 7, 4),
+            datetime.date(2016, 9, 5),
+            datetime.date(2016, 11, 24),
+            datetime.date(2016, 12, 26),
+        ]
+    )
+Easter Friday (2016-03-25) is listed as one of the holidays. Running the sample now:
+
+
+$ ./tcal.py --plot --owncal
+
+...
+Strategy len 56 datetime 2016-03-23 Data0 len 56 datetime 2016-03-23 Data1 len 11 datetime 2016-03-18
+Strategy len 57 datetime 2016-03-24 Data0 len 57 datetime 2016-03-24 Data1 len 12 datetime 2016-03-24
+Strategy len 58 datetime 2016-03-28 Data0 len 58 datetime 2016-03-28 Data1 len 12 datetime 2016-03-24
+...
+And the same result has been obtained with the crafted calendar definition.
+
+Minutes to Daily
+Using some private intraday data and the knowledge that the market closed early on 2016-11-25 (the day after Thanksgiving the market closed at 13:00 in US/Eastern timezone), another test run, this time with the 2nd sample.
+
+Note
+
+The source data is taken directly from the displayed data and is in CET timeozone even if the asset in question, YHOO trades in the USA. The tzinput='CET' and tz='US/Eastern' is used in the code for the data feed to let the platform appropriately transform the input and display the output
+
+First with no trading calendar
+
+
+$ ./tcal-intra.py
+
+...
+Strategy len 6838 datetime 2016-11-25 18:00:00 Data0 len 6838 datetime 2016-11-25 13:00:00 Data1 len 21 datetime 2016-11-23 16:00:00
+Strategy len 6839 datetime 2016-11-25 18:01:00 Data0 len 6839 datetime 2016-11-25 13:01:00 Data1 len 21 datetime 20 16-11-23 16:00:00
+Strategy len 6840 datetime 2016-11-28 14:31:00 Data0 len 6840 datetime 2016-11-28 09:31:00 Data1 len 22 datetime 2016-11-25 16:00:00
+Strategy len 6841 datetime 2016-11-28 14:32:00 Data0 len 6841 datetime 2016-11-28 09:32:00 Data1 len 22 datetime 2016-11-25 16:00:00
+...
+As expected the day closes early at 13:00, but the resampler doesn’t know it (the official session ends at 16:00) and keeps on delivering the resampled daily bar from the previous day (2016-11-23) and the new resampled daily bar is first delivered during the next trading day (2016-11-28) with a date of 2016-11-25.
+
+Note
+
+The data has an extra minute bar at 13:01 which is probably due to the auction process offering a last price after the market closing time.
+
+We could add a filter to the stream to filter out the bars outside of the session times (the filter would find it out from the trading calendar)
+
+But that’s not the point of this sample.
+
+The same run with a PandasMarketCalendar instance:
+
+
+$ ./tcal-intra.py --pandascal NYSE
+
+...
+Strategy len 6838 datetime 2016-11-25 18:00:00 Data0 len 6838 datetime 2016-11-25 13:00:00 Data1 len 15 datetime 2016-11-25 13:00:00
+Strategy len 6839 datetime 2016-11-25 18:01:00 Data0 len 6839 datetime 2016-11-25 13:01:00 Data1 len 15 datetime 2016-11-25 13:00:00
+Strategy len 6840 datetime 2016-11-28 14:31:00 Data0 len 6840 datetime 2016-11-28 09:31:00 Data1 len 15 datetime 2016-11-25 13:00:00
+Strategy len 6841 datetime 2016-11-28 14:32:00 Data0 len 6841 datetime 2016-11-28 09:32:00 Data1 len 15 datetime 2016-11-25 13:00:00
+...
+And now the daily bar for 2016-11-25 is delivered when the intraday 1-minute feed hits 2016-11-25 at 13:00 (let’s disregard the 13:01 bar), because the trading calendar is telling the resampling code that the day is over.
+
+Let’s add a crafted definition. The same as before but extending it with some earlydays
+
+
+class NYSE_2016(bt.TradingCalendar):
+    params = dict(
+        holidays=[
+            datetime.date(2016, 1, 1),
+            datetime.date(2016, 1, 18),
+            datetime.date(2016, 2, 15),
+            datetime.date(2016, 3, 25),
+            datetime.date(2016, 5, 30),
+            datetime.date(2016, 7, 4),
+            datetime.date(2016, 9, 5),
+            datetime.date(2016, 11, 24),
+            datetime.date(2016, 12, 26),
+        ],
+        earlydays=[
+            (datetime.date(2016, 11, 25),
+             datetime.time(9, 30), datetime.time(13, 1))
+        ],
+        open=datetime.time(9, 30),
+        close=datetime.time(16, 0),
+    )
+The run:
+
+
+$ ./tcal-intra.py --owncal
+
+...
+Strategy len 6838 datetime 2016-11-25 18:00:00 Data0 len 6838 datetime 2016-11-25 13:00:00 Data1 len 15 datetime 2016-11-23 16:00:00
+Strategy len 6839 datetime 2016-11-25 18:01:00 Data0 len 6839 datetime 2016-11-25 13:01:00 Data1 len 16 datetime 2016-11-25 13:01:00
+Strategy len 6840 datetime 2016-11-28 14:31:00 Data0 len 6840 datetime 2016-11-28 09:31:00 Data1 len 16 datetime 2016-11-25 13:01:00
+Strategy len 6841 datetime 2016-11-28 14:32:00 Data0 len 6841 datetime 2016-11-28 09:32:00 Data1 len 16 datetime 2016-11-25 13:01:00
+...
+The avid reader will notice that the crafted definition contains has defined 13:01 (with datetime.time(13, 1)) as the end of session for our short day of 2016-11-25. This is only to show how the crafted TradingCalendar can help into fitting things.
+
+Now the daily resampled bar for 2016-11-25 is delivered together with the 1-minute bar at 13:01.
+
+Extra bonus for the strategy
+The first datetime, the one belonging to the strategy, is always in a different timezone which is actually UTC. Also with this release 1.9.42.116 this can be synchronized. The following parameter has been added to Cerebro (use either during instantiation or with cerebro.run
+
+
+- ``tz`` (default: ``None``)
+
+  Adds a global timezone for strategies. The argument ``tz`` can be
+
+    - ``None``: in this case the datetime displayed by strategies will be
+      in UTC, which has been always the standard behavior
+
+    - ``pytz`` instance. It will be used as such to convert UTC times to
+      the chosen timezone
+
+    - ``string``. Instantiating a ``pytz`` instance will be attempted.
+
+    - ``integer``. Use, for the strategy, the same timezone as the
+      corresponding ``data`` in the ``self.datas`` iterable (``0`` would
+      use the timezone from ``data0``)
+It is also supported with the cerebro.addtz method:
+
+
+def addtz(self, tz):
+    '''
+    This can also be done with the parameter ``tz``
+
+    Adds a global timezone for strategies. The argument ``tz`` can be
+
+      - ``None``: in this case the datetime displayed by strategies will be
+        in UTC, which has been always the standard behavior
+
+      - ``pytz`` instance. It will be used as such to convert UTC times to
+        the chosen timezone
+
+      - ``string``. Instantiating a ``pytz`` instance will be attempted.
+
+      - ``integer``. Use, for the strategy, the same timezone as the
+        corresponding ``data`` in the ``self.datas`` iterable (``0`` would
+        use the timezone from ``data0``)
+
+    '''
+Repeating the last run of the intraday sample and using 0 for tz (synchronize with the timezone of data0) the following is the output focusing on the same dates and times as above:
+
+
+$ ./tcal-intra.py --owncal --cerebro tz=0
+
+...
+Strategy len 6838 datetime 2016-11-25 13:00:00 Data0 len 6838 datetime 2016-11-25 13:00:00 Data1 len 15 datetime 2016-11-23 16:00:00
+Strategy len 6839 datetime 2016-11-25 13:01:00 Data0 len 6839 datetime 2016-11-25 13:01:00 Data1 len 16 datetime 2016-11-25 13:01:00
+Strategy len 6840 datetime 2016-11-28 09:31:00 Data0 len 6840 datetime 2016-11-28 09:31:00 Data1 len 16 datetime 2016-11-25 13:01:00
+Strategy len 6841 datetime 2016-11-28 09:32:00 Data0 len 6841 datetime 2016-11-28 09:32:00 Data1 len 16 datetime 2016-11-25 13:01:00
+...
+The timestamp is now timezone aligned.
+
+Sample usage (tcal.py)
+
+$ ./tcal.py --help
+usage: tcal.py [-h] [--data0 DATA0] [--offline] [--fromdate FROMDATE]
+               [--todate TODATE] [--cerebro kwargs] [--broker kwargs]
+               [--sizer kwargs] [--strat kwargs] [--plot [kwargs]]
+               [--pandascal PANDASCAL | --owncal]
+               [--timeframe {Weeks,Months,Years}]
+
+Trading Calendar Sample
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data0 DATA0         Data to read in (default: YHOO)
+  --offline             Read from disk with same name as ticker (default:
+                        False)
+  --fromdate FROMDATE   Date[time] in YYYY-MM-DD[THH:MM:SS] format (default:
+                        2016-01-01)
+  --todate TODATE       Date[time] in YYYY-MM-DD[THH:MM:SS] format (default:
+                        2016-12-31)
+  --cerebro kwargs      kwargs in key=value format (default: )
+  --broker kwargs       kwargs in key=value format (default: )
+  --sizer kwargs        kwargs in key=value format (default: )
+  --strat kwargs        kwargs in key=value format (default: )
+  --plot [kwargs]       kwargs in key=value format (default: )
+  --pandascal PANDASCAL
+                        Name of trading calendar to use (default: )
+  --owncal              Apply custom NYSE 2016 calendar (default: False)
+  --timeframe {Weeks,Months,Years}
+                        Timeframe to resample to (default: Weeks)
+Sample usage (tcal-intra.py)
+
+$ ./tcal-intra.py --help
+usage: tcal-intra.py [-h] [--data0 DATA0] [--fromdate FROMDATE]
+                     [--todate TODATE] [--cerebro kwargs] [--broker kwargs]
+                     [--sizer kwargs] [--strat kwargs] [--plot [kwargs]]
+                     [--pandascal PANDASCAL | --owncal] [--timeframe {Days}]
+
+Trading Calendar Sample
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data0 DATA0         Data to read in (default: yhoo-2016-11.csv)
+  --fromdate FROMDATE   Date[time] in YYYY-MM-DD[THH:MM:SS] format (default:
+                        2016-01-01)
+  --todate TODATE       Date[time] in YYYY-MM-DD[THH:MM:SS] format (default:
+                        2016-12-31)
+  --cerebro kwargs      kwargs in key=value format (default: )
+  --broker kwargs       kwargs in key=value format (default: )
+  --sizer kwargs        kwargs in key=value format (default: )
+  --strat kwargs        kwargs in key=value format (default: )
+  --plot [kwargs]       kwargs in key=value format (default: )
+  --pandascal PANDASCAL
+                        Name of trading calendar to use (default: )
+  --owncal              Apply custom NYSE 2016 calendar (default: False)
+  --timeframe {Days}    Timeframe to resample to (default: Days)
+Sample Code (tcal.py)
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class NYSE_2016(bt.TradingCalendar):
+    params = dict(
+        holidays=[
+            datetime.date(2016, 1, 1),
+            datetime.date(2016, 1, 18),
+            datetime.date(2016, 2, 15),
+            datetime.date(2016, 3, 25),
+            datetime.date(2016, 5, 30),
+            datetime.date(2016, 7, 4),
+            datetime.date(2016, 9, 5),
+            datetime.date(2016, 11, 24),
+            datetime.date(2016, 12, 26),
+        ]
+    )
+
+
+class St(bt.Strategy):
+    params = dict(
+    )
+
+    def __init__(self):
+        pass
+
+    def start(self):
+        self.t0 = datetime.datetime.utcnow()
+
+    def stop(self):
+        t1 = datetime.datetime.utcnow()
+        print('Duration:', t1 - self.t0)
+
+    def prenext(self):
+        self.next()
+
+    def next(self):
+        print('Strategy len {} datetime {}'.format(
+            len(self), self.datetime.date()), end=' ')
+
+        print('Data0 len {} datetime {}'.format(
+            len(self.data0), self.data0.datetime.date()), end=' ')
+
+        if len(self.data1):
+            print('Data1 len {} datetime {}'.format(
+                len(self.data1), self.data1.datetime.date()))
+        else:
+            print()
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    kwargs = dict()
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    YahooData = bt.feeds.YahooFinanceData
+    if args.offline:
+        YahooData = bt.feeds.YahooFinanceCSVData  # change to read file
+
+    # Data feed
+    data0 = YahooData(dataname=args.data0, **kwargs)
+    cerebro.adddata(data0)
+
+    d1 = cerebro.resampledata(data0,
+                              timeframe=getattr(bt.TimeFrame, args.timeframe))
+    d1.plotinfo.plotmaster = data0
+    d1.plotinfo.sameaxis = True
+
+    if args.pandascal:
+        cerebro.addcalendar(args.pandascal)
+    elif args.owncal:
+        cerebro.addcalendar(NYSE_2016)
+
+    # Broker
+    cerebro.broker = bt.brokers.BackBroker(**eval('dict(' + args.broker + ')'))
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Strategy
+    cerebro.addstrategy(St, **eval('dict(' + args.strat + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'Trading Calendar Sample'
+        )
+    )
+
+    parser.add_argument('--data0', default='YHOO',
+                        required=False, help='Data to read in')
+
+    parser.add_argument('--offline', required=False, action='store_true',
+                        help='Read from disk with same name as ticker')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='2016-01-01',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='2016-12-31',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    pgroup = parser.add_mutually_exclusive_group(required=False)
+    pgroup.add_argument('--pandascal', required=False, action='store',
+                        default='', help='Name of trading calendar to use')
+
+    pgroup.add_argument('--owncal', required=False, action='store_true',
+                        help='Apply custom NYSE 2016 calendar')
+
+    parser.add_argument('--timeframe', required=False, action='store',
+                        default='Weeks', choices=['Weeks', 'Months', 'Years'],
+                        help='Timeframe to resample to')
+
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+Sample Code (tcal-intra.py)
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class NYSE_2016(bt.TradingCalendar):
+    params = dict(
+        holidays=[
+            datetime.date(2016, 1, 1),
+            datetime.date(2016, 1, 18),
+            datetime.date(2016, 2, 15),
+            datetime.date(2016, 3, 25),
+            datetime.date(2016, 5, 30),
+            datetime.date(2016, 7, 4),
+            datetime.date(2016, 9, 5),
+            datetime.date(2016, 11, 24),
+            datetime.date(2016, 12, 26),
+        ],
+        earlydays=[
+            (datetime.date(2016, 11, 25),
+             datetime.time(9, 30), datetime.time(13, 1))
+        ],
+        open=datetime.time(9, 30),
+        close=datetime.time(16, 0),
+    )
+
+
+class St(bt.Strategy):
+    params = dict(
+    )
+
+    def __init__(self):
+        pass
+
+    def prenext(self):
+        self.next()
+
+    def next(self):
+        print('Strategy len {} datetime {}'.format(
+            len(self), self.datetime.datetime()), end=' ')
+
+        print('Data0 len {} datetime {}'.format(
+            len(self.data0), self.data0.datetime.datetime()), end=' ')
+
+        if len(self.data1):
+            print('Data1 len {} datetime {}'.format(
+                len(self.data1), self.data1.datetime.datetime()))
+        else:
+            print()
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    # kwargs = dict(tz='US/Eastern')
+    # import pytz
+    # tz = tzinput = pytz.timezone('Europe/Berlin')
+    tzinput = 'Europe/Berlin'
+    # tz = tzinput
+    tz = 'US/Eastern'
+    kwargs = dict(tzinput=tzinput, tz=tz)
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    # Data feed
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **kwargs)
+    cerebro.adddata(data0)
+
+    d1 = cerebro.resampledata(data0,
+                              timeframe=getattr(bt.TimeFrame, args.timeframe))
+    # d1.plotinfo.plotmaster = data0
+    # d1.plotinfo.sameaxis = False
+
+    if args.pandascal:
+        cerebro.addcalendar(args.pandascal)
+    elif args.owncal:
+        cerebro.addcalendar(NYSE_2016())  # or NYSE_2016() to pass an instance
+
+    # Broker
+    cerebro.broker = bt.brokers.BackBroker(**eval('dict(' + args.broker + ')'))
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Strategy
+    cerebro.addstrategy(St, **eval('dict(' + args.strat + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'Trading Calendar Sample'
+        )
+    )
+
+    parser.add_argument('--data0', default='yhoo-2016-11.csv',
+                        required=False, help='Data to read in')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='2016-01-01',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='2016-12-31',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    pgroup = parser.add_mutually_exclusive_group(required=False)
+    pgroup.add_argument('--pandascal', required=False, action='store',
+                        default='', help='Name of trading calendar to use')
+
+    pgroup.add_argument('--owncal', required=False, action='store_true',
+                        help='Apply custom NYSE 2016 calendar')
+
+    parser.add_argument('--timeframe', required=False, action='store',
+                        default='Days', choices=['Days'],
+                        help='Timeframe to resample to')
+
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+

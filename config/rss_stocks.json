@@ -1,0 +1,442 @@
+{
+  "feeds": {
+    "news": [
+      {
+        "name": "MarketWatch",
+        "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Investing.com Stock News",
+        "url": "https://investing.com/rss/news_25.rss",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Economic Times Stocks",
+        "url": "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CNBC Market Insider",
+        "url": "https://www.cnbc.com/id/20409666/device/rss/rss.html",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "WALLSTNOW",
+        "url": "https://wallstnow.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Sensex Today",
+        "url": "https://www.sensextoday.co.in/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Infimoney",
+        "url": "https://www.infimoney.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "FinanceAsia",
+        "url": "https://www.financeasia.com/rss/latest",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Mint Stock Markets",
+        "url": "https://www.livemint.com/rss/markets",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "CNBC TV18",
+        "url": "https://www.cnbctv18.com/commonfeeds/v1/cne/rss/market.xml",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Business Line Stocks",
+        "url": "https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "The Hindu Markets",
+        "url": "https://www.thehindu.com/business/markets/?service=rss",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Indian Express Market",
+        "url": "https://indianexpress.com/section/business/market/feed/",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Benzinga",
+        "url": "https://www.benzinga.com/apis/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Palo Alto Networks IR",
+        "url": "https://investors.paloaltonetworks.com/rss/news-releases.xml",
+        "description": "",
+        "update_frequency": "daily"
+      }
+    ],
+    "analysis": [
+      {
+        "name": "Seeking Alpha",
+        "url": "https://seekingalpha.com/feed.xml",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Motley Fool Canada",
+        "url": "https://www.fool.ca/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Stock Gumshoe",
+        "url": "https://www.stockgumshoe.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Calculated Risk",
+        "url": "https://feeds.feedburner.com/CalculatedRisk",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Securities Research",
+        "url": "https://www.securities-research.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "ValueWalk",
+        "url": "https://www.valuewalk.com/feed/",
+        "description": "",
+        "update_frequency": "daily"
+      }
+    ],
+    "blog": [
+      {
+        "name": "Emerging Market Skeptic",
+        "url": "https://emergingmarketskeptic.substack.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "MQL5 Traders Blogs",
+        "url": "https://www.mql5.com/en/blogs/rss",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "B-Stock Solutions",
+        "url": "https://www.bstock.com/blog/category/buyer/feed/",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Trade Brains",
+        "url": "https://tradebrains.in/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Trading Sim",
+        "url": "https://tradingsim.com/blog/rss.xml",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "StockManiacs",
+        "url": "https://stockmaniacs.net/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Day Trade Review",
+        "url": "https://daytradereview.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Musings on Markets",
+        "url": "https://aswathdamodaran.blogspot.com/feeds/posts/default",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "VantagePoint AI",
+        "url": "https://www.vantagepointsoftware.com/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Peter Brandt",
+        "url": "https://www.peterlbrandt.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "TraderFeed",
+        "url": "https://traderfeed.blogspot.com/feeds/posts/default",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Blue Collar Investor",
+        "url": "https://www.thebluecollarinvestor.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Terry's Tips",
+        "url": "https://terrystips.com/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Brown Report",
+        "url": "https://thebrownreport.com/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "DivHut",
+        "url": "https://divhut.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Option Strategist",
+        "url": "https://www.optionstrategist.com/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Crossing Wall Street",
+        "url": "https://feeds.feedburner.com/CrossingWallStreet",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "My Stocks Investing",
+        "url": "https://mystocksinvesting.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "SG Wealth Builder",
+        "url": "https://sgwealthbuilder.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "DivGro",
+        "url": "https://divgro.blogspot.com/feeds/posts/default",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "SEM Trader",
+        "url": "https://tradersblog.semwealth.com/rss",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "TSI Blog",
+        "url": "https://tsi-blog.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Spiking",
+        "url": "https://www.spiking.com/blog/rss",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Fat Tail Daily",
+        "url": "https://daily.fattail.com.au/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Dear Mr Market",
+        "url": "https://dearmrmarket.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Alpha Ideas",
+        "url": "https://alphaideas.in/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Gale.in",
+        "url": "https://gale.in/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Carl Futia",
+        "url": "https://carlfutia.blogspot.com/feeds/posts/default",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Daily Tearsheet",
+        "url": "https://thedailytearsheet.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Investment Talk",
+        "url": "https://feeds.feedburner.com/InvestmentTalk",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Blue Horseshoe Stocks",
+        "url": "https://www.bluehorseshoestocks.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Master Charts Trading",
+        "url": "https://www.masterchartstrading.com/1/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Singapore Trading Insights",
+        "url": "https://singaporetradinginsights.blogspot.com/feeds/posts/default",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Hashtag Investing",
+        "url": "https://hashtaginvesting.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "INO.com",
+        "url": "https://www.ino.com/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "FinDynamics",
+        "url": "https://findynamics.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Lucky Idiot",
+        "url": "https://jimitzaveri.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Goode Trades",
+        "url": "https://www.goodetrades.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "HGSI",
+        "url": "https://highgrowthstock.com/feed/",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Divesh Technical Analysis",
+        "url": "https://diveshtechanalysis.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Nifty Vision",
+        "url": "https://niftyvision.blogspot.com/feeds/posts/default",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Singapore Stocks Investing",
+        "url": "https://singapore-stocks-investing.blogspot.com/feeds/posts/default",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "The Ace Investor",
+        "url": "https://theaceinvestor.blogspot.com/feeds/posts/default",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Dalal Street Investor",
+        "url": "https://dalalstreetinvestor.wordpress.com/feed/",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "SpeedTrader",
+        "url": "https://www.speedtrader.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "LearnBonds",
+        "url": "https://learnbonds.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "Almanac Trader",
+        "url": "https://jeffhirsch.tumblr.com/rss",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "ProAct Traders",
+        "url": "https://www.proacttraders.com/blog/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "PhilStockWorld",
+        "url": "https://www.philstockworld.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      },
+      {
+        "name": "The Money Cog",
+        "url": "https://themoneycog.com/feed",
+        "description": "",
+        "update_frequency": "daily"
+      }
+    ]
+  },
+  "settings": {
+    "default_timeout": 30,
+    "max_retries": 3,
+    "user_agent": "WawaBackTrader/1.0 (RSS Reader)",
+    "fetch_interval": 3600
+  }
+}

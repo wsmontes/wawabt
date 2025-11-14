@@ -1,0 +1,132 @@
+{
+  "database": {
+    "data_folder": "data",
+    "default_format": "parquet",
+    "compression": "snappy",
+    "db_file": "data/market_data.duckdb"
+  },
+  "data_structure": {
+    "market_data": {
+      "description": "Time-series market data (OHLCV) - unique by symbol+timestamp+source",
+      "partition_strategy": "by_symbol",
+      "path_pattern": "data/market/{source}/{symbol}/{interval}.parquet",
+      "deduplication": "symbol,timestamp,source,interval",
+      "retention_days": 0
+    },
+    "news_data": {
+      "description": "News and RSS feeds - unique by link+timestamp",
+      "partition_strategy": "by_date",
+      "path_pattern": "data/news/{source}/{year}/{month}.parquet",
+      "deduplication": "link,timestamp",
+      "retention_days": 365
+    },
+    "reference_data": {
+      "description": "Static reference data - symbols, exchanges, metadata",
+      "partition_strategy": "single_file",
+      "path_pattern": "data/reference/{entity_type}.parquet",
+      "deduplication": "entity_id",
+      "retention_days": 0
+    },
+    "analysis_data": {
+      "description": "Generated analysis, indicators, ML predictions",
+      "partition_strategy": "by_analysis_type",
+      "path_pattern": "data/analysis/{analysis_type}/{symbol}/{timestamp}.parquet",
+      "deduplication": "symbol,timestamp,analysis_type,model_version",
+      "retention_days": 180
+    },
+    "metrics_data": {
+      "description": "Calculated metrics and aggregations",
+      "partition_strategy": "by_metric_type",
+      "path_pattern": "data/metrics/{metric_type}/{symbol}.parquet",
+      "deduplication": "symbol,timestamp,metric_type",
+      "retention_days": 365
+    },
+    "logs": {
+      "description": "System and operation logs",
+      "partition_strategy": "by_date",
+      "path_pattern": "data/logs/{log_type}/{year}/{month}.parquet",
+      "deduplication": "timestamp,operation_id",
+      "retention_days": 90
+    }
+  },
+  "schemas": {
+    "market_data": {
+      "timestamp": "TIMESTAMP",
+      "symbol": "VARCHAR",
+      "source": "VARCHAR",
+      "interval": "VARCHAR",
+      "open": "DOUBLE",
+      "high": "DOUBLE",
+      "low": "DOUBLE",
+      "close": "DOUBLE",
+      "volume": "DOUBLE",
+      "vwap": "DOUBLE",
+      "trades": "BIGINT",
+      "data_hash": "VARCHAR",
+      "created_at": "TIMESTAMP"
+    },
+    "news_data": {
+      "timestamp": "TIMESTAMP",
+      "source": "VARCHAR",
+      "category": "VARCHAR",
+      "title": "VARCHAR",
+      "link": "VARCHAR",
+      "description": "VARCHAR",
+      "author": "VARCHAR",
+      "tags": "VARCHAR[]",
+      "content_hash": "VARCHAR",
+      "created_at": "TIMESTAMP"
+    },
+    "reference_symbols": {
+      "symbol": "VARCHAR PRIMARY KEY",
+      "name": "VARCHAR",
+      "exchange": "VARCHAR",
+      "asset_type": "VARCHAR",
+      "currency": "VARCHAR",
+      "country": "VARCHAR",
+      "sector": "VARCHAR",
+      "industry": "VARCHAR",
+      "market_cap": "DOUBLE",
+      "is_active": "BOOLEAN",
+      "first_seen": "TIMESTAMP",
+      "last_updated": "TIMESTAMP"
+    },
+    "analysis_data": {
+      "timestamp": "TIMESTAMP",
+      "symbol": "VARCHAR",
+      "analysis_type": "VARCHAR",
+      "model_name": "VARCHAR",
+      "model_version": "VARCHAR",
+      "prediction": "DOUBLE",
+      "confidence": "DOUBLE",
+      "features": "JSON",
+      "metadata": "JSON",
+      "created_at": "TIMESTAMP"
+    },
+    "metrics_data": {
+      "timestamp": "TIMESTAMP",
+      "symbol": "VARCHAR",
+      "metric_type": "VARCHAR",
+      "metric_name": "VARCHAR",
+      "value": "DOUBLE",
+      "period": "VARCHAR",
+      "metadata": "JSON",
+      "created_at": "TIMESTAMP"
+    }
+  },
+  "indexes": {
+    "market_data": ["symbol", "timestamp", "source"],
+    "news_data": ["timestamp", "source", "category"],
+    "reference_symbols": ["symbol", "exchange", "asset_type"],
+    "analysis_data": ["symbol", "timestamp", "analysis_type"],
+    "metrics_data": ["symbol", "metric_type", "timestamp"]
+  },
+  "settings": {
+    "memory_limit": "2GB",
+    "threads": 4,
+    "enable_object_cache": true,
+    "auto_vacuum": true,
+    "deduplication_enabled": true,
+    "compression_level": 9
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "ccxt": {
+    "exchanges": {
+      "binance": {
+        "enabled": true,
+        "testnet": false,
+        "api_key": "",
+        "api_secret": ""
+      },
+      "coinbase": {
+        "enabled": false,
+        "api_key": "",
+        "api_secret": ""
+      },
+      "kraken": {
+        "enabled": false,
+        "api_key": "",
+        "api_secret": ""
+      }
+    },
+    "default_exchange": "binance",
+    "rate_limit": true,
+    "timeout": 30000,
+    "api_key": "",
+    "api_secret": ""
+  },
+  "alpaca": {
+    "base_url": "https://paper-api.alpaca.markets",
+    "api_key": "",
+    "api_secret": "",
+    "data_feed": "iex",
+    "enable_crypto": true,
+    "enable_options": true,
+    "enable_news": true,
+    "enable_corporate_actions": true
+  },
+  "binance": {
+    "api_key": "",
+    "api_secret": "",
+    "testnet": false,
+    "recv_window": 5000
+  },
+  "yahoo_finance": {
+    "proxy": null,
+    "timeout": 30,
+    "max_workers": 8
+  },
+  "settings": {
+    "cache_enabled": true,
+    "cache_ttl_seconds": 300,
+    "retry_attempts": 3,
+    "backoff_factor": 2
+  }
+}

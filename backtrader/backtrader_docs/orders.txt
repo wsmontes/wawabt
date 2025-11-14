@@ -1,0 +1,3107 @@
+Skip to content
+logo
+Backtrader
+Orders - General
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Orders - General
+Orders - Creation/Execution
+Orders - Target Orders
+Orders - OCO
+Orders - Brackets
+Orders - Future-Spot Compensation
+Orders - StopTrail
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Order creation
+Order notification
+Order Status values
+Reference: Order and associated classes
+class backtrader.order.Order()
+class backtrader.order.OrderData(dt=None, size=0, price=0.0, pricelimit=0.0, remsize=0, pclose=0.0, trailamount=0.0, trailpercent=0.0)
+class backtrader.order.OrderExecutionBit(dt=None, size=0, price=0.0, closed=0, closedvalue=0.0, closedcomm=0.0, opened=0, openedvalue=0.0, openedcomm=0.0, pnl=0.0, psize=0, pprice=0.0)
+Orders
+Cerebro is the key control system in backtrader and Strategy (a subclass) is the key control point of the end user. The latter needs a chaining method to other parts of the system and that’s where orders play a key role.
+
+Orders translate the decisions made by the logic in a Strategy into a message suitable for the Broker to execute an action. This is done with:
+
+Creation
+
+Through Strategy’s methods: buy\``,sellandclose(Strategy) which return anorder` instance as a reference
+
+Cancellation
+
+Through Strategy’s method: cancel (Strategy) which takes an order instance to operate on
+
+And the orders serve also as a communication method back to the user, to notify how things are running in the broker.
+
+Notification
+
+To Strategy method: notify_order (Strategy) which reports an order instance
+
+Order creation
+When invoking the buy, sell and close the following parameters apply for creation:
+
+data (default: None)
+
+For which data the order has to be created. If None then the first data in the system, self.datas[0] or self.data0 (aka self.data) will be used
+
+size (default: None)
+
+Size to use (positive) of units of data to use for the order.
+
+If None the sizer instance retrieved via getsizer will be used to determine the size.
+
+price (default: None)
+
+Price to use (live brokers may place restrictions on the actual format if it does not comply to minimum tick size requirements)
+
+None is valid for Market and Close orders (the market determines the price)
+
+For Limit, Stop and StopLimit orders this value determines the trigger point (in the case of Limit the trigger is obviously at which price the order should be matched)
+
+plimit (default: None)
+
+Only applicable to StopLimit orders. This is the price at which to set the implicit Limit order, once the Stop has been triggered (for which price has been used)
+
+exectype (default: None)
+
+Possible values:
+
+Order.Market or None. A market order will be executed with the next available price. In backtesting it will be the opening price of the next bar
+
+Order.Limit. An order which can only be executed at the given price or better
+
+Order.Stop. An order which is triggered at price and executed like an Order.Market order
+
+Order.StopLimit. An order which is triggered at price and executed as an implicit Limit order with price given by pricelimit
+
+valid (default: None)
+
+Possible values:
+
+None: this generates an order that will not expire (aka Good till cancel) and remain in the market until matched or canceled. In reality brokers tend to impose a temporal limit, but this is usually so far away in time to consider it as not expiring
+
+datetime.datetime or datetime.date instance: the date will be used to generate an order valid until the given datetime (aka good till date)
+
+Order.DAY or 0 or timedelta(): a day valid until the End of the Session (aka day order) will be generated
+
+numeric value: This is assumed to be a value corresponding to a datetime in matplotlib coding (the one used by backtrader) and will used to generate an order valid until that time (good till date)
+
+tradeid (default: 0)
+
+This is an internal value applied by backtrader to keep track of overlapping trades on the same asset. This tradeid is sent back to the strategy when notifying changes to the status of the orders.
+
+**kwargs: additional broker implementations may support extra parameters. backtrader will pass the kwargs down to the created order objects
+
+Example: if the 4 order execution types directly supported by backtrader are not enough, in the case of for example Interactive Brokers the following could be passed as kwargs:
+
+
+orderType='LIT', lmtPrice=10.0, auxPrice=9.8
+This would override the settings created by backtrader and generate a LIMIT IF TOUCHED order with a touched price of 9.8 and a limit price of 10.0.
+
+Note
+
+The close method will examine the current position and correspondingly use buy or sell to effectively close the position. size will also be automatically calculated unless the parameter is an input from the user, in which case a partial close or a reversal can be achieved
+
+Order notification
+To receive notifications the notify_order method has to be overriden in the user subclassed Strategy (the default behavior is to do nothing). The following applies to those notifications:
+
+Issued before the strategy’s next method is called
+
+May (and will) happen several times for the same order with the same or different status during the same next cycle.
+
+An order may be submitted to the broker and be accepted and its execution completed before next will be invoked again.
+
+In this case at least 3 notifications will happen with the following status values:
+
+Order.Submitted because the order was sent to the broker
+
+Order.Accepted because the order was taken by the broker and awaits potential execution
+
+Order.Completed because in the example it was quickly matched and completely filled (which may be the case usually for Market orders)
+
+Notifications may happen even several times for the same status in the case of Order.Partial. This status will not be seen in the backtesting broker (which doesn’t consider volume when matching) but it will for sure be set by real brokers.
+
+Real brokers may issue one or more executions before updating a position, and this group of executions will make up for an Order.Partial notification.
+
+Actual execution data is in the attribute: order.executed which is an object of type OrderData (see below for the reference), with usual fields as size and price
+
+The values at the time of creation are stored in order.created which remains unchanged throughout the lifecycle of an order
+
+Order Status values
+The following are defined:
+
+Order.Created: set when the Order instance is created. Never to be seen by end-users unless order instances are manually created rather than through buy, sell and close
+
+Order.Submitted: set when the order instance has been transmitted to the broker. This simply means it has been sent. In backtesting mode this will be an immediate action, but it may take actual time with a real broker, which may receive the order and only first notify when it has been forwarded to an exchange
+
+Order.Accepted: the broker has taken the order and it is in the system (or already in a exchange) awaiting execution according to the set parameters like execution type, size, price and validity
+
+Order.Partial: the order has been partially executed. order.executed contains the current filled size and average price.
+
+order.executed.exbits contains a complete list of ExecutionBits detailing the partial fillings
+
+Order.Complete: the order has been completely filled average price.
+
+Order.Rejected: the broker has rejected the order. A parameter (like for example valid to determine its lifetime) may not be accepted by the broker and the order cannot be accepted.
+
+The reason will be notified via the notify_store method of the strategy. Although this may seem awkward, the reason is that real life brokers will notify this over an event, which may or may not be direclty related to the order. But the notification from the broker can still be seen in notify_store.
+
+This status will not be seen in the backtesting broker
+
+Order.Margin: the order execution would imply a margin call and the previously accepted order has been taken off the system
+
+Order.Cancelled (or Order.Canceled): confirmation of the user requested cancellation
+
+It must be taken into account that a request to cancel an order via the cancel method of the strategy is no guarantee of cancellation. The order may have been already executed but such execution may not have yet notified by the broker and/or the notification may not have yet been delivered to the strategy
+
+Order.Expired: a previously accepted order which had a time validity has expired and been taken off the system
+
+Reference: Order and associated classes
+These objects are the generic classes in the backtrader ecosystem. They may been extended and/or contain extra embedded information when operating with other brokers. See the reference of the appropriate broker
+
+class backtrader.order.Order()
+Class which holds creation/execution data and type of oder.
+
+The order may have the following status:
+
+Submitted: sent to the broker and awaiting confirmation
+
+Accepted: accepted by the broker
+
+Partial: partially executed
+
+Completed: fully exexcuted
+
+Canceled/Cancelled: canceled by the user
+
+Expired: expired
+
+Margin: not enough cash to execute the order.
+
+Rejected: Rejected by the broker
+
+This can happen during order submission (and therefore the order will not reach the Accepted status) or before execution with each new bar price because cash has been drawn by other sources (future-like instruments may have reduced the cash or orders orders may have been executed)
+
+Member Attributes:
+
+ref: unique order identifier
+
+created: OrderData holding creation data
+
+executed: OrderData holding execution data
+
+info: custom information passed over method addinfo(). It is kept in the form of an OrderedDict which has been subclassed, so that keys can also be specified using ‘.’ notation
+
+User Methods:
+
+isbuy(): returns bool indicating if the order buys
+
+issell(): returns bool indicating if the order sells
+
+alive(): returns bool if order is in status Partial or Accepted
+
+class backtrader.order.OrderData(dt=None, size=0, price=0.0, pricelimit=0.0, remsize=0, pclose=0.0, trailamount=0.0, trailpercent=0.0)
+Holds actual order data for Creation and Execution.
+
+In the case of Creation the request made and in the case of Execution the actual outcome.
+
+Member Attributes:
+
+exbits : iterable of OrderExecutionBits for this OrderData
+
+dt: datetime (float) creation/execution time
+
+size: requested/executed size
+
+price: execution price Note: if no price is given and no pricelimite is given, the closing price at the time or order creation will be used as reference
+
+pricelimit: holds pricelimit for StopLimit (which has trigger first)
+
+trailamount: absolute price distance in trailing stops
+
+trailpercent: percentage price distance in trailing stops
+
+value: market value for the entire bit size
+
+comm: commission for the entire bit execution
+
+pnl: pnl generated by this bit (if something was closed)
+
+margin: margin incurred by the Order (if any)
+
+psize: current open position size
+
+pprice: current open position price
+
+class backtrader.order.OrderExecutionBit(dt=None, size=0, price=0.0, closed=0, closedvalue=0.0, closedcomm=0.0, opened=0, openedvalue=0.0, openedcomm=0.0, pnl=0.0, psize=0, pprice=0.0)
+Intended to hold information about order execution. A “bit” does not determine if the order has been fully/partially executed, it just holds information.
+
+Member Attributes:
+
+dt: datetime (float) execution time
+
+size: how much was executed
+
+price: execution price
+
+closed: how much of the execution closed an existing postion
+
+opened: how much of the execution opened a new position
+
+openedvalue: market value of the “opened” part
+
+closedvalue: market value of the “closed” part
+
+closedcomm: commission for the “closed” part
+
+openedcomm: commission for the “opened” part
+
+value: market value for the entire bit size
+
+comm: commission for the entire bit execution
+
+pnl: pnl generated by this bit (if something was closed)
+
+psize: current open position size
+
+pprice: current open position price
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Orders - Creation/Execution
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Orders - General
+Orders - Creation/Execution
+Orders - Target Orders
+Orders - OCO
+Orders - Brackets
+Orders - Future-Spot Compensation
+Orders - StopTrail
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Order Management
+Order Execution Logic
+Market
+Close
+Limit
+Stop
+StopLimit
+Some samples
+Execution Type: Market
+Execution Type: Close
+Execution Type: Limit
+Execution Type: Limit with validity
+Execution Type: Stop
+Execution Type: StopLimit
+Test Script Execution
+The full code
+Order Management and Execution
+Backtesting, and hence backtrader, would not be complete if orders could not be simulated. To do so, the following is available in the platform.
+
+For order management 3 primitives:
+
+buy
+
+sell
+
+cancel
+
+Note
+
+An update primitive is obviously something logic but common sense dictates that such a method is mostly used by manual operators working with a judgmental trading approach.
+
+For order execution logic the following execution types:
+
+Market
+
+Close
+
+Limit
+
+Stop
+
+StopLimit
+
+Order Management
+Some examples:
+
+
+# buy the main date, with sizer default stake, Market order
+order = self.buy()
+
+# Market order - valid will be "IGNORED"
+order = self.buy(valid=datetime.datetime.now() + datetime.timedelta(days=3))
+
+# Market order - price will be IGNORED
+order = self.buy(price=self.data.close[0] * 1.02)
+
+# Market order - manual stake
+order = self.buy(size=25)
+
+# Limit order - want to set the price and can set a validity
+order = self.buy(exectype=Order.Limit,
+                 price=self.data.close[0] * 1.02,
+                 valid=datetime.datetime.now() + datetime.timedelta(days=3)))
+
+# StopLimit order - want to set the price, price limit
+order = self.buy(exectype=Order.StopLimit,
+                 price=self.data.close[0] * 1.02,
+                 plimit=self.data.close[0] * 1.07)
+
+# Canceling an existing order
+self.broker.cancel(order)
+Note
+
+All order types can be create by creating an Order instance (or one of its subclasses) and then passed to to the broker with:
+
+
+order = self.broker.submit(order)
+Note
+
+There are buy and sell primitives in the broker itself, but they are less forgiving with regards to default parameters.
+
+Order Execution Logic
+The broker uses 2 main guidelines (assumptions?) for order execution.
+
+The current data has already happened and cannot be used to execcute an order.
+
+If the logic in the strategy is something like:
+
+
+ if self.data.close > self.sma:  # where sma is a Simple Moving Average
+     self.buy()
+The expectation CANNOT be that the order will be executed with the close price which is being examined in the logic BECAUSE it has already happened.
+
+The order CAN BE 1st EXECUTED withing the bounds of the next set of Open/High/Low/Close price points (and the conditions set forth herein by the order)
+
+Volume does not play a role
+
+It actually does in real trading if the trader goes for non-liquid assets or precisely the extremes (high/low) of a price bar are hit.
+
+But hitting the high/low points is a seldom occurrence (if you do … you don’t need backtrader) and the chosen assets will have enough liquidity to absorb the orders of any regular trading
+
+Market
+Execution:
+
+Opening price of the next set of Open/High/Low/Close prices (commonly referred as bar)
+Rationale:
+
+If the logic has executed at point X in time and issued a Market order, the next price spot that will happen is the upcoming open price
+Note
+
+This order executes always and disregards any price and valid parameters used to create it
+
+Close
+Execution:
+
+Using the close price of the next barwhen the next bar actually CLOSES
+Rationale:
+
+Most backtesting feeds contain already closed bars and the order will execute immediately with the close price of the next bar. A daily data feed is the most common example.
+
+But the system could be fed with “tick” prices and the actual bar (time/date wise) is being udpated constantly with the new ticks, without actually moving to the next bar (because time and/or date have not changed)
+
+Only when the time or date changes, the bar has actually been closed and the order gets executed
+
+Limit
+Execution:
+
+The price set at order creation if the data touches it, starting with the next price bar.
+
+The order will be canceled if valid is set and the time point is reached
+
+Price Matching:
+
+backtrader tries to provide most realistic execution price for Limit orders.
+
+Using the 4 price spots (Open/High/Low/Close) it can be partially inferred if the requested price can be improved.
+
+For Buy Orders
+
+Case 1:
+
+If the open price of the bar is below the limit price the order executes immediately with the open price. The order has been swept during the opening phase of the session
+
+Case 2:
+
+If the open price has not penetrated below the limit price but the low price is below the limit price, then the limit price has been seen during the session and the order can be executed
+
+The logic is obviously inverted for Sell orders.
+
+Stop
+Execution:
+
+The trigger price set at order creation if the data touches it, starting with the next price bar.
+
+The order will be canceled if valid is set and the time point is reached
+
+Price Matching:
+
+backtrader tries to provide most realistic trigger price for Stop orders.
+
+Using the 4 price spots (Open/High/Low/Close) it can be partially inferred if the requested price can be improved.
+
+For \Stoporders whichBuy`
+
+Case 1:
+
+If the open price of the bar is above the stop price the order is executed immediately with the open price.
+
+Intended to stop a loss if the price is moving upwards against an existing short position
+
+Case 2:
+
+If the open price has not penetrated above the stop price but the high price is above the stop price, then the stop price has been seen during the session and the order can be executed
+
+The logic is obviously inverted for Stop orders which Sell.
+
+StopLimit
+Execution:
+
+The trigger price sets the order in motion starting with the next price bar.
+Price Matching:
+
+Trigger: Uses the Stop matching logic (but only triggers and turns the order into a Limit order)
+
+Limit: Uses the Limit price matching logic
+
+Some samples
+As always pictures (with code) are worth several million long explanations. Please note that the snippets concentrate on the order creation part. The full code is at the bottom.
+
+A price closes above/below a simple moving average strategy will be used for the generation of the buy/sell signals
+
+The signal is seen at the bottom of the charts: the CrossOver using the crossover indicator.
+
+A reference to generated “buy” orders will be kept to only allow one simultaneous order at most in the system.
+
+Execution Type: Market
+See in the chart how how the orders are executed one bar after the signal is generated with the opening price.
+
+
+            if self.p.exectype == 'Market':
+                self.buy(exectype=bt.Order.Market)  # default if not given
+
+                self.log('BUY CREATE, exectype Market, price %.2f' %
+                         self.data.close[0])
+The output chart.
+
+image
+
+The command line and output:
+
+
+$ ./order-execution-samples.py --exectype Market
+2006-01-26T23:59:59+00:00, BUY CREATE, exectype Market, price 3641.42
+2006-01-26T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-01-27T23:59:59+00:00, BUY EXECUTED, Price: 3643.35, Cost: 3643.35, Comm 0.00
+2006-03-02T23:59:59+00:00, SELL CREATE, 3763.73
+2006-03-02T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-03T23:59:59+00:00, SELL EXECUTED, Price: 3763.95, Cost: 3763.95, Comm 0.00
+...
+...
+2006-12-11T23:59:59+00:00, BUY CREATE, exectype Market, price 4052.89
+2006-12-11T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-12-12T23:59:59+00:00, BUY EXECUTED, Price: 4052.55, Cost: 4052.55, Comm 0.00
+Execution Type: Close
+Now the orders are also executed one bar after the signal but with the closing price.
+
+
+            elif self.p.exectype == 'Close':
+                self.buy(exectype=bt.Order.Close)
+
+                self.log('BUY CREATE, exectype Close, price %.2f' %
+                         self.data.close[0])
+The output chart.
+
+image
+
+The command line and output:
+
+
+$ ./order-execution-samples.py --exectype Close
+2006-01-26T23:59:59+00:00, BUY CREATE, exectype Close, price 3641.42
+2006-01-26T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-01-27T23:59:59+00:00, BUY EXECUTED, Price: 3685.48, Cost: 3685.48, Comm 0.00
+2006-03-02T23:59:59+00:00, SELL CREATE, 3763.73
+2006-03-02T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-03T23:59:59+00:00, SELL EXECUTED, Price: 3763.95, Cost: 3763.95, Comm 0.00
+...
+...
+2006-11-06T23:59:59+00:00, BUY CREATE, exectype Close, price 4045.22
+2006-11-06T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-11-07T23:59:59+00:00, BUY EXECUTED, Price: 4072.86, Cost: 4072.86, Comm 0.00
+2006-11-24T23:59:59+00:00, SELL CREATE, 4048.16
+2006-11-24T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-11-27T23:59:59+00:00, SELL EXECUTED, Price: 4045.05, Cost: 4045.05, Comm 0.00
+2006-12-11T23:59:59+00:00, BUY CREATE, exectype Close, price 4052.89
+2006-12-11T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-12-12T23:59:59+00:00, BUY EXECUTED, Price: 4059.74, Cost: 4059.74, Comm 0.00
+Execution Type: Limit
+Validity is being calculated some lines before in case it has been passed as argument.
+
+
+            if self.p.valid:
+                valid = self.data.datetime.date(0) + \
+                        datetime.timedelta(days=self.p.valid)
+            else:
+                valid = None
+A limit price 1% below the signal generation price (the close at the signal bar) is set. Notice how this prevents many from the orders above from being executed.
+
+
+            elif self.p.exectype == 'Limit':
+                price = self.data.close * (1.0 - self.p.perc1 / 100.0)
+
+                self.buy(exectype=bt.Order.Limit, price=price, valid=valid)
+
+                if self.p.valid:
+                    txt = 'BUY CREATE, exectype Limit, price %.2f, valid: %s'
+                    self.log(txt % (price, valid.strftime('%Y-%m-%d')))
+                else:
+                    txt = 'BUY CREATE, exectype Limit, price %.2f'
+                    self.log(txt % price)
+The output chart.
+
+image
+
+Just 4 orders have been issued. Limiting the price trying to catch a small dip has completly changed the output.
+
+The command line and output:
+
+
+$ ./order-execution-samples.py --exectype Limit --perc1 1
+2006-01-26T23:59:59+00:00, BUY CREATE, exectype Limit, price 3605.01
+2006-01-26T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-05-18T23:59:59+00:00, BUY EXECUTED, Price: 3605.01, Cost: 3605.01, Comm 0.00
+2006-06-05T23:59:59+00:00, SELL CREATE, 3604.33
+2006-06-05T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-06-06T23:59:59+00:00, SELL EXECUTED, Price: 3598.58, Cost: 3598.58, Comm 0.00
+2006-06-21T23:59:59+00:00, BUY CREATE, exectype Limit, price 3491.57
+2006-06-21T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-06-28T23:59:59+00:00, BUY EXECUTED, Price: 3491.57, Cost: 3491.57, Comm 0.00
+2006-07-13T23:59:59+00:00, SELL CREATE, 3562.56
+2006-07-13T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-07-14T23:59:59+00:00, SELL EXECUTED, Price: 3545.92, Cost: 3545.92, Comm 0.00
+2006-07-24T23:59:59+00:00, BUY CREATE, exectype Limit, price 3596.60
+2006-07-24T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+Execution Type: Limit with validity
+To not wait forever on a limit order which may only execute when the price is moving against the “buy” order, the order will only be valid 4 (calendar) days.
+
+The output chart.
+
+image
+
+More orders have been generated, but all but one “buy” order expired, further limiting the amount of operations.
+
+The command line and output:
+
+
+$ ./order-execution-samples.py --exectype Limit --perc1 1 --valid 4
+2006-01-26T23:59:59+00:00, BUY CREATE, exectype Limit, price 3605.01, valid: 2006-01-30
+2006-01-26T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-01-30T23:59:59+00:00, BUY EXPIRED
+2006-03-10T23:59:59+00:00, BUY CREATE, exectype Limit, price 3760.48, valid: 2006-03-14
+2006-03-10T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-14T23:59:59+00:00, BUY EXPIRED
+2006-03-30T23:59:59+00:00, BUY CREATE, exectype Limit, price 3835.86, valid: 2006-04-03
+2006-03-30T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-04-03T23:59:59+00:00, BUY EXPIRED
+2006-04-20T23:59:59+00:00, BUY CREATE, exectype Limit, price 3821.40, valid: 2006-04-24
+2006-04-20T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-04-24T23:59:59+00:00, BUY EXPIRED
+2006-05-04T23:59:59+00:00, BUY CREATE, exectype Limit, price 3804.65, valid: 2006-05-08
+2006-05-04T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-05-08T23:59:59+00:00, BUY EXPIRED
+2006-06-01T23:59:59+00:00, BUY CREATE, exectype Limit, price 3611.85, valid: 2006-06-05
+2006-06-01T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-06-05T23:59:59+00:00, BUY EXPIRED
+2006-06-21T23:59:59+00:00, BUY CREATE, exectype Limit, price 3491.57, valid: 2006-06-25
+2006-06-21T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-06-26T23:59:59+00:00, BUY EXPIRED
+2006-07-24T23:59:59+00:00, BUY CREATE, exectype Limit, price 3596.60, valid: 2006-07-28
+2006-07-24T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-07-28T23:59:59+00:00, BUY EXPIRED
+2006-09-12T23:59:59+00:00, BUY CREATE, exectype Limit, price 3751.07, valid: 2006-09-16
+2006-09-12T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-09-18T23:59:59+00:00, BUY EXPIRED
+2006-09-20T23:59:59+00:00, BUY CREATE, exectype Limit, price 3802.90, valid: 2006-09-24
+2006-09-20T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-09-22T23:59:59+00:00, BUY EXECUTED, Price: 3802.90, Cost: 3802.90, Comm 0.00
+2006-11-02T23:59:59+00:00, SELL CREATE, 3974.62
+2006-11-02T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-11-03T23:59:59+00:00, SELL EXECUTED, Price: 3979.73, Cost: 3979.73, Comm 0.00
+2006-11-06T23:59:59+00:00, BUY CREATE, exectype Limit, price 4004.77, valid: 2006-11-10
+2006-11-06T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-11-10T23:59:59+00:00, BUY EXPIRED
+2006-12-11T23:59:59+00:00, BUY CREATE, exectype Limit, price 4012.36, valid: 2006-12-15
+2006-12-11T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-12-15T23:59:59+00:00, BUY EXPIRED
+Execution Type: Stop
+A stop price 1% above the signal price is set. That means that the strategy only buys if the signal is generated and the price continues climbing up, which could be intrepreted as a signal of strength.
+
+This completely alters the execution panorama.
+
+
+            elif self.p.exectype == 'Stop':
+                price = self.data.close * (1.0 + self.p.perc1 / 100.0)
+
+                self.buy(exectype=bt.Order.Stop, price=price, valid=valid)
+
+                if self.p.valid:
+                    txt = 'BUY CREATE, exectype Stop, price %.2f, valid: %s'
+                    self.log(txt % (price, valid.strftime('%Y-%m-%d')))
+                else:
+                    txt = 'BUY CREATE, exectype Stop, price %.2f'
+                    self.log(txt % price)
+The output chart.
+
+image
+
+The command line and output:
+
+
+$ ./order-execution-samples.py --exectype Stop --perc1 1
+2006-01-26T23:59:59+00:00, BUY CREATE, exectype Stop, price 3677.83
+2006-01-26T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-01-27T23:59:59+00:00, BUY EXECUTED, Price: 3677.83, Cost: 3677.83, Comm 0.00
+2006-03-02T23:59:59+00:00, SELL CREATE, 3763.73
+2006-03-02T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-03T23:59:59+00:00, SELL EXECUTED, Price: 3763.95, Cost: 3763.95, Comm 0.00
+2006-03-10T23:59:59+00:00, BUY CREATE, exectype Stop, price 3836.44
+2006-03-10T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-15T23:59:59+00:00, BUY EXECUTED, Price: 3836.44, Cost: 3836.44, Comm 0.00
+2006-03-28T23:59:59+00:00, SELL CREATE, 3811.45
+2006-03-28T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-29T23:59:59+00:00, SELL EXECUTED, Price: 3811.85, Cost: 3811.85, Comm 0.00
+2006-03-30T23:59:59+00:00, BUY CREATE, exectype Stop, price 3913.36
+2006-03-30T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-09-29T23:59:59+00:00, BUY EXECUTED, Price: 3913.36, Cost: 3913.36, Comm 0.00
+2006-11-02T23:59:59+00:00, SELL CREATE, 3974.62
+2006-11-02T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-11-03T23:59:59+00:00, SELL EXECUTED, Price: 3979.73, Cost: 3979.73, Comm 0.00
+2006-11-06T23:59:59+00:00, BUY CREATE, exectype Stop, price 4085.67
+2006-11-06T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-11-13T23:59:59+00:00, BUY EXECUTED, Price: 4085.67, Cost: 4085.67, Comm 0.00
+2006-11-24T23:59:59+00:00, SELL CREATE, 4048.16
+2006-11-24T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-11-27T23:59:59+00:00, SELL EXECUTED, Price: 4045.05, Cost: 4045.05, Comm 0.00
+2006-12-11T23:59:59+00:00, BUY CREATE, exectype Stop, price 4093.42
+2006-12-11T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-12-13T23:59:59+00:00, BUY EXECUTED, Price: 4093.42, Cost: 4093.42, Comm 0.00
+Execution Type: StopLimit
+A stop price 1% above the signal price is set. But the limit price is set 0.5% above the signal (close) price which could be interpreted as: wait for the strength to show up but do not buy the peak. Wait for a dip.
+
+Validity is capped at 20 (calendar) days
+
+
+            elif self.p.exectype == 'StopLimit':
+                price = self.data.close * (1.0 + self.p.perc1 / 100.0)
+
+                plimit = self.data.close * (1.0 + self.p.perc2 / 100.0)
+
+                self.buy(exectype=bt.Order.StopLimit, price=price, valid=valid,
+                         plimit=plimit)
+
+                if self.p.valid:
+                    txt = ('BUY CREATE, exectype StopLimit, price %.2f,'
+                           ' valid: %s, pricelimit: %.2f')
+                    self.log(txt % (price, valid.strftime('%Y-%m-%d'), plimit))
+                else:
+                    txt = ('BUY CREATE, exectype StopLimit, price %.2f,'
+                           ' pricelimit: %.2f')
+                    self.log(txt % (price, plimit))
+The output chart.
+
+image
+
+The command line and output:
+
+
+$ ./order-execution-samples.py --exectype StopLimit --perc1 1 --perc2 0.5 --valid 20
+2006-01-26T23:59:59+00:00, BUY CREATE, exectype StopLimit, price 3677.83, valid: 2006-02-15, pricelimit: 3659.63
+2006-01-26T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-02-03T23:59:59+00:00, BUY EXECUTED, Price: 3659.63, Cost: 3659.63, Comm 0.00
+2006-03-02T23:59:59+00:00, SELL CREATE, 3763.73
+2006-03-02T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-03T23:59:59+00:00, SELL EXECUTED, Price: 3763.95, Cost: 3763.95, Comm 0.00
+2006-03-10T23:59:59+00:00, BUY CREATE, exectype StopLimit, price 3836.44, valid: 2006-03-30, pricelimit: 3817.45
+2006-03-10T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-21T23:59:59+00:00, BUY EXECUTED, Price: 3817.45, Cost: 3817.45, Comm 0.00
+2006-03-28T23:59:59+00:00, SELL CREATE, 3811.45
+2006-03-28T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-03-29T23:59:59+00:00, SELL EXECUTED, Price: 3811.85, Cost: 3811.85, Comm 0.00
+2006-03-30T23:59:59+00:00, BUY CREATE, exectype StopLimit, price 3913.36, valid: 2006-04-19, pricelimit: 3893.98
+2006-03-30T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-04-19T23:59:59+00:00, BUY EXPIRED
+...
+...
+2006-12-11T23:59:59+00:00, BUY CREATE, exectype StopLimit, price 4093.42, valid: 2006-12-31, pricelimit: 4073.15
+2006-12-11T23:59:59+00:00, ORDER ACCEPTED/SUBMITTED
+2006-12-22T23:59:59+00:00, BUY EXECUTED, Price: 4073.15, Cost: 4073.15, Comm 0.00
+Test Script Execution
+Detailed in the command line help:
+
+
+$ ./order-execution-samples.py --help
+usage: order-execution-samples.py [-h] [--infile INFILE]
+                                  [--csvformat {bt,visualchart,sierrachart,yahoo,yahoo_unreversed}]
+                                  [--fromdate FROMDATE] [--todate TODATE]
+                                  [--plot] [--plotstyle {bar,line,candle}]
+                                  [--numfigs NUMFIGS] [--smaperiod SMAPERIOD]
+                                  [--exectype EXECTYPE] [--valid VALID]
+                                  [--perc1 PERC1] [--perc2 PERC2]
+
+Showcase for Order Execution Types
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --infile INFILE, -i INFILE
+                        File to be read in
+  --csvformat {bt,visualchart,sierrachart,yahoo,yahoo_unreversed},
+  -c {bt,visualchart,sierrachart,yahoo,yahoo_unreversed}
+                        CSV Format
+  --fromdate FROMDATE, -f FROMDATE
+                        Starting date in YYYY-MM-DD format
+  --todate TODATE, -t TODATE
+                        Ending date in YYYY-MM-DD format
+  --plot, -p            Plot the read data
+  --plotstyle {bar,line,candle}, -ps {bar,line,candle}
+                        Plot the read data
+  --numfigs NUMFIGS, -n NUMFIGS
+                        Plot using n figures
+  --smaperiod SMAPERIOD, -s SMAPERIOD
+                      Simple Moving Average Period
+  --exectype EXECTYPE, -e EXECTYPE
+                        Execution Type: Market (default), Close, Limit,
+                        Stop, StopLimit
+  --valid VALID, -v VALID
+                        Validity for Limit sample: default 0 days
+  --perc1 PERC1, -p1 PERC1
+                        % distance from close price at order creation time for
+                        the limit/trigger price in Limit/Stop orders
+  --perc2 PERC2, -p2 PERC2
+                        % distance from close price at order creation time for
+                        the limit price in StopLimit orders
+The full code
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+import os.path
+import time
+import sys
+
+
+import backtrader as bt
+import backtrader.feeds as btfeeds
+import backtrader.indicators as btind
+
+
+class OrderExecutionStrategy(bt.Strategy):
+    params = (
+        ('smaperiod', 15),
+        ('exectype', 'Market'),
+        ('perc1', 3),
+        ('perc2', 1),
+        ('valid', 4),
+    )
+
+    def log(self, txt, dt=None):
+        ''' Logging function fot this strategy'''
+        dt = dt or self.data.datetime[0]
+        if isinstance(dt, float):
+            dt = bt.num2date(dt)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            # Buy/Sell order submitted/accepted to/by broker - Nothing to do
+            self.log('ORDER ACCEPTED/SUBMITTED', dt=order.created.dt)
+            self.order = order
+            return
+
+        if order.status in [order.Expired]:
+            self.log('BUY EXPIRED')
+
+        elif order.status in [order.Completed]:
+            if order.isbuy():
+                self.log(
+                    'BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                    (order.executed.price,
+                     order.executed.value,
+                     order.executed.comm))
+
+            else:  # Sell
+                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+
+        # Sentinel to None: new orders allowed
+        self.order = None
+
+    def __init__(self):
+        # SimpleMovingAverage on main data
+        # Equivalent to -> sma = btind.SMA(self.data, period=self.p.smaperiod)
+        sma = btind.SMA(period=self.p.smaperiod)
+
+        # CrossOver (1: up, -1: down) close / sma
+        self.buysell = btind.CrossOver(self.data.close, sma, plot=True)
+
+        # Sentinel to None: new ordersa allowed
+        self.order = None
+
+    def next(self):
+        if self.order:
+            # An order is pending ... nothing can be done
+            return
+
+        # Check if we are in the market
+        if self.position:
+            # In the maerket - check if it's the time to sell
+            if self.buysell < 0:
+                self.log('SELL CREATE, %.2f' % self.data.close[0])
+                self.sell()
+
+        elif self.buysell > 0:
+            if self.p.valid:
+                valid = self.data.datetime.date(0) + \
+                        datetime.timedelta(days=self.p.valid)
+            else:
+                valid = None
+
+            # Not in the market and signal to buy
+            if self.p.exectype == 'Market':
+                self.buy(exectype=bt.Order.Market)  # default if not given
+
+                self.log('BUY CREATE, exectype Market, price %.2f' %
+                         self.data.close[0])
+
+            elif self.p.exectype == 'Close':
+                self.buy(exectype=bt.Order.Close)
+
+                self.log('BUY CREATE, exectype Close, price %.2f' %
+                         self.data.close[0])
+
+            elif self.p.exectype == 'Limit':
+                price = self.data.close * (1.0 - self.p.perc1 / 100.0)
+
+                self.buy(exectype=bt.Order.Limit, price=price, valid=valid)
+
+                if self.p.valid:
+                    txt = 'BUY CREATE, exectype Limit, price %.2f, valid: %s'
+                    self.log(txt % (price, valid.strftime('%Y-%m-%d')))
+                else:
+                    txt = 'BUY CREATE, exectype Limit, price %.2f'
+                    self.log(txt % price)
+
+            elif self.p.exectype == 'Stop':
+                price = self.data.close * (1.0 + self.p.perc1 / 100.0)
+
+                self.buy(exectype=bt.Order.Stop, price=price, valid=valid)
+
+                if self.p.valid:
+                    txt = 'BUY CREATE, exectype Stop, price %.2f, valid: %s'
+                    self.log(txt % (price, valid.strftime('%Y-%m-%d')))
+                else:
+                    txt = 'BUY CREATE, exectype Stop, price %.2f'
+                    self.log(txt % price)
+
+            elif self.p.exectype == 'StopLimit':
+                price = self.data.close * (1.0 + self.p.perc1 / 100.0)
+
+                plimit = self.data.close * (1.0 + self.p.perc2 / 100.0)
+
+                self.buy(exectype=bt.Order.StopLimit, price=price, valid=valid,
+                         plimit=plimit)
+
+                if self.p.valid:
+                    txt = ('BUY CREATE, exectype StopLimit, price %.2f,'
+                           ' valid: %s, pricelimit: %.2f')
+                    self.log(txt % (price, valid.strftime('%Y-%m-%d'), plimit))
+                else:
+                    txt = ('BUY CREATE, exectype StopLimit, price %.2f,'
+                           ' pricelimit: %.2f')
+                    self.log(txt % (price, plimit))
+
+
+def runstrat():
+    args = parse_args()
+
+    cerebro = bt.Cerebro()
+
+    data = getdata(args)
+    cerebro.adddata(data)
+
+    cerebro.addstrategy(
+        OrderExecutionStrategy,
+        exectype=args.exectype,
+        perc1=args.perc1,
+        perc2=args.perc2,
+        valid=args.valid,
+        smaperiod=args.smaperiod
+    )
+    cerebro.run()
+
+    if args.plot:
+        cerebro.plot(numfigs=args.numfigs, style=args.plotstyle)
+
+
+def getdata(args):
+
+    dataformat = dict(
+        bt=btfeeds.BacktraderCSVData,
+        visualchart=btfeeds.VChartCSVData,
+        sierrachart=btfeeds.SierraChartCSVData,
+        yahoo=btfeeds.YahooFinanceCSVData,
+        yahoo_unreversed=btfeeds.YahooFinanceCSVData
+    )
+
+    dfkwargs = dict()
+    if args.csvformat == 'yahoo_unreversed':
+        dfkwargs['reverse'] = True
+
+    if args.fromdate:
+        fromdate = datetime.datetime.strptime(args.fromdate, '%Y-%m-%d')
+        dfkwargs['fromdate'] = fromdate
+
+    if args.todate:
+        fromdate = datetime.datetime.strptime(args.todate, '%Y-%m-%d')
+        dfkwargs['todate'] = todate
+
+    dfkwargs['dataname'] = args.infile
+
+    dfcls = dataformat[args.csvformat]
+
+    return dfcls(**dfkwargs)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Showcase for Order Execution Types')
+
+    parser.add_argument('--infile', '-i', required=False,
+                        default='../../datas/2006-day-001.txt',
+                        help='File to be read in')
+
+    parser.add_argument('--csvformat', '-c', required=False, default='bt',
+                        choices=['bt', 'visualchart', 'sierrachart',
+                                 'yahoo', 'yahoo_unreversed'],
+                        help='CSV Format')
+
+    parser.add_argument('--fromdate', '-f', required=False, default=None,
+                        help='Starting date in YYYY-MM-DD format')
+
+    parser.add_argument('--todate', '-t', required=False, default=None,
+                        help='Ending date in YYYY-MM-DD format')
+
+    parser.add_argument('--plot', '-p', action='store_false', required=False,
+                        help='Plot the read data')
+
+    parser.add_argument('--plotstyle', '-ps', required=False, default='bar',
+                        choices=['bar', 'line', 'candle'],
+                        help='Plot the read data')
+
+    parser.add_argument('--numfigs', '-n', required=False, default=1,
+                        help='Plot using n figures')
+
+    parser.add_argument('--smaperiod', '-s', required=False, default=15,
+                        help='Simple Moving Average Period')
+
+    parser.add_argument('--exectype', '-e', required=False, default='Market',
+                        help=('Execution Type: Market (default), Close, Limit,'
+                              ' Stop, StopLimit'))
+
+    parser.add_argument('--valid', '-v', required=False, default=0, type=int,
+                        help='Validity for Limit sample: default 0 days')
+
+    parser.add_argument('--perc1', '-p1', required=False, default=0.0,
+                        type=float,
+                        help=('%% distance from close price at order creation'
+                              ' time for the limit/trigger price in Limit/Stop'
+                              ' orders'))
+
+    parser.add_argument('--perc2', '-p2', required=False, default=0.0,
+                        type=float,
+                        help=('%% distance from close price at order creation'
+                              ' time for the limit price in StopLimit orders'))
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Orders - Target Orders
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Orders - General
+Orders - Creation/Execution
+Orders - Target Orders
+Orders - OCO
+Orders - Brackets
+Orders - Future-Spot Compensation
+Orders - StopTrail
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+The Sample
+order_target_size
+order_target_value
+order_target_percent
+Sample Usage
+Sample Code
+Target Orders
+Until version 1.8.10.96 smart staking was possible with backtrader over the Strategy methods: buy and sell. It was all about adding a Sizer to the equation which is responsible for the size of the stake.
+
+What a Sizer cannot do is decide if the operation has to be a buy or a sell. And that means that a new concept is needed in which a small intelligence layer is added to make such decision.
+
+Here is where the family of order_target_xxx methods in the Strategy come into play. Inspired by the ones in zipline, the methods offer the chance to simply specify the final target, be the target:
+
+size -> amount of shares, contracts in the portfolio of a specific asset
+
+value -> value in monetary units of the asset in the portfolio
+
+percent -> percentage (from current portfolio) value of the asset in the current portfolio
+
+Note
+
+The reference for the methods can be found in Strategy. The summary is that the methods use the same signature as buy and sell except for the parameter size which is replaced by the parameter target
+
+In this case it is all about specifying the final target and the method decides if an operation will be a buy or a sell. The same logic applies to the 3 methods. Let’s tart with order_target_size
+
+If the target is greater than the position a buy is issued, with the difference target - position_size
+
+Examples:
+
+Pos: 0, target: 7 -> buy(size=7 - 0) -> buy(size=7)
+
+Pos: 3, target: 7 -> buy(size=7 - 3) -> buy(size=4)
+
+Pos: -3, target: 7 -> buy(size=7 - -3) -> buy(size=10)
+
+Pos: -3, target: -2 -> buy(size=-2 - -3) -> buy(size=1)
+
+If the target is smaller than the position a sell is issued with the difference position_size - target
+
+Examples:
+
+Pos: 0, target: -7 -> sell(size=0 - -7) -> sell(size=7)
+
+Pos: 3, target: -7 -> sell(size=3 - -7) -> sell(size=10)
+
+Pos: -3, target: -7 -> sell(size=-3 - -7) -> sell(size=4)
+
+Pos: 3, target: 2 -> sell(size=3 - 2) -> sell(size=1)
+
+When targetting a value with order_target_value, the current value of the asset in the portfolio and the position size are both taken into account to decide what the final underlying operation will be. The reasoning:
+
+If position size is negative (short) and the target value has to be greater than the current value, this means: sell more
+As such the logic works as follows:
+
+If target > value and size >=0 -> buy
+
+If target > value and size < 0 -> sell
+
+If target < value and size >= 0 -> sell
+
+If target < value and size < 0 -> buy
+
+The logic for order_target_percent is the same as that of order_target_value. This method simply takes into account the current total value of the portfolio to determine the target value for the asset.
+
+The Sample
+backtrader tries to have a sample for each new functionality and this is no exception. No bells and whistles, just something to test the results are as expected. This one is under the order_target directory in the samples.
+
+The logic in the sample is rather dumb and only meaant for testing:
+
+During odd months (Jan, Mar, …), use the day as target (in the case of order_target_value multiplying the day by 1000)
+
+This mimics an increasing target
+
+During even months (Feb, Apr, …) use 31 - day as the target
+
+This mimics an decreasing target
+
+order_target_size
+Let’s see what happens in Jan and Feb.
+
+
+$ ./order_target.py --target-size -- plot
+0001 - 2005-01-03 - Position Size:     00 - Value 1000000.00
+0001 - 2005-01-03 - Order Target Size: 03
+0002 - 2005-01-04 - Position Size:     03 - Value 999994.39
+0002 - 2005-01-04 - Order Target Size: 04
+0003 - 2005-01-05 - Position Size:     04 - Value 999992.48
+0003 - 2005-01-05 - Order Target Size: 05
+0004 - 2005-01-06 - Position Size:     05 - Value 999988.79
+...
+0020 - 2005-01-31 - Position Size:     28 - Value 999968.70
+0020 - 2005-01-31 - Order Target Size: 31
+0021 - 2005-02-01 - Position Size:     31 - Value 999954.68
+0021 - 2005-02-01 - Order Target Size: 30
+0022 - 2005-02-02 - Position Size:     30 - Value 999979.65
+0022 - 2005-02-02 - Order Target Size: 29
+0023 - 2005-02-03 - Position Size:     29 - Value 999966.33
+0023 - 2005-02-03 - Order Target Size: 28
+...
+In Jan the target starts at 3 with the 1st trading day of the year and increases. And the position size moves initially from 0 to 3 and then in increments of 1.
+
+Finishing Jan the last order_target is for 31 and that position size is reported when entering the 1st day of Feb, when the new target side is requested to be 30 and goes changing along with the position in decrements of ´1`.
+
+image
+
+order_target_value
+A similar behavior is expected from target values
+
+
+$ ./order_target.py --target-value --plot
+0001 - 2005-01-03 - Position Size:     00 - Value 1000000.00
+0001 - 2005-01-03 - data value 0.00
+0001 - 2005-01-03 - Order Target Value: 3000.00
+0002 - 2005-01-04 - Position Size:     78 - Value 999854.14
+0002 - 2005-01-04 - data value 2853.24
+0002 - 2005-01-04 - Order Target Value: 4000.00
+0003 - 2005-01-05 - Position Size:     109 - Value 999801.68
+0003 - 2005-01-05 - data value 3938.17
+0003 - 2005-01-05 - Order Target Value: 5000.00
+0004 - 2005-01-06 - Position Size:     138 - Value 999699.57
+...
+0020 - 2005-01-31 - Position Size:     808 - Value 999206.37
+0020 - 2005-01-31 - data value 28449.68
+0020 - 2005-01-31 - Order Target Value: 31000.00
+0021 - 2005-02-01 - Position Size:     880 - Value 998807.33
+0021 - 2005-02-01 - data value 30580.00
+0021 - 2005-02-01 - Order Target Value: 30000.00
+0022 - 2005-02-02 - Position Size:     864 - Value 999510.21
+0022 - 2005-02-02 - data value 30706.56
+0022 - 2005-02-02 - Order Target Value: 29000.00
+0023 - 2005-02-03 - Position Size:     816 - Value 999130.05
+0023 - 2005-02-03 - data value 28633.44
+0023 - 2005-02-03 - Order Target Value: 28000.00
+...
+There is an extra line of information telling what the actual data value (in the portfolio) is. This helps in finding out if the target value has been reachec.
+
+The initial target is 3000.0 and the reported initial value is 2853.24. The question here is whether this is close enough. And the answer is Yes
+
+The sample uses a Market order at the end of a daily bar and the last available price to calculate a target size which meets the target value
+
+The execution uses then the open price of the next day and this is unlikely to be the previous close
+
+Doing it in any other way would mean one is cheating him/herfself.
+
+The next target value and final value are much closer: 4000 and 3938.17.
+
+When changing into Feb the target value starts decreasing from 31000 to 30000 and 29000. So does the data value with from 30580.00 to 30706.56 and then to 28633.44. Wait:
+
+30580 -> 30706.56 is a positive change
+
+Indeed. In this case the calculated size for the target value met an opening price which bumped the value to 30706.56
+
+How this effect can be avoided:
+
+The sample uses a Market type execution for the orders and this effect cannot be avoided
+
+The methods order_target_xxx allow specifying the execution type and price.
+
+One could specify Limit as the execution order and let the price be the close price (chosen by the method if nothing else be provided) or even provide specific pricing
+
+image
+
+order_target_percent
+In this case it is simply a percentage of the current portfolio value.
+
+
+$ ./order_target.py --target-percent --plot
+0001 - 2005-01-03 - Position Size:     00 - Value 1000000.00
+0001 - 2005-01-03 - data percent 0.00
+0001 - 2005-01-03 - Order Target Percent: 0.03
+0002 - 2005-01-04 - Position Size:     785 - Value 998532.05
+0002 - 2005-01-04 - data percent 0.03
+0002 - 2005-01-04 - Order Target Percent: 0.04
+0003 - 2005-01-05 - Position Size:     1091 - Value 998007.44
+0003 - 2005-01-05 - data percent 0.04
+0003 - 2005-01-05 - Order Target Percent: 0.05
+0004 - 2005-01-06 - Position Size:     1381 - Value 996985.64
+...
+0020 - 2005-01-31 - Position Size:     7985 - Value 991966.28
+0020 - 2005-01-31 - data percent 0.28
+0020 - 2005-01-31 - Order Target Percent: 0.31
+0021 - 2005-02-01 - Position Size:     8733 - Value 988008.94
+0021 - 2005-02-01 - data percent 0.31
+0021 - 2005-02-01 - Order Target Percent: 0.30
+0022 - 2005-02-02 - Position Size:     8530 - Value 995005.45
+0022 - 2005-02-02 - data percent 0.30
+0022 - 2005-02-02 - Order Target Percent: 0.29
+0023 - 2005-02-03 - Position Size:     8120 - Value 991240.75
+0023 - 2005-02-03 - data percent 0.29
+0023 - 2005-02-03 - Order Target Percent: 0.28
+...
+And the information has been changed to see the % the data represents in the portfolio.
+
+image
+
+Sample Usage
+
+$ ./order_target.py --help
+usage: order_target.py [-h] [--data DATA] [--fromdate FROMDATE]
+                       [--todate TODATE] [--cash CASH]
+                       (--target-size | --target-value | --target-percent)
+                       [--plot [kwargs]]
+
+Sample for Order Target
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data DATA           Specific data to be read in (default:
+                        ../../datas/yhoo-1996-2015.txt)
+  --fromdate FROMDATE   Starting date in YYYY-MM-DD format (default:
+                        2005-01-01)
+  --todate TODATE       Ending date in YYYY-MM-DD format (default: 2006-12-31)
+  --cash CASH           Ending date in YYYY-MM-DD format (default: 1000000)
+  --target-size         Use order_target_size (default: False)
+  --target-value        Use order_target_value (default: False)
+  --target-percent      Use order_target_percent (default: False)
+  --plot [kwargs], -p [kwargs]
+                        Plot the read data applying any kwargs passed For
+                        example: --plot style="candle" (to plot candles)
+                        (default: None)
+Sample Code
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+from datetime import datetime
+
+import backtrader as bt
+
+
+class TheStrategy(bt.Strategy):
+    '''
+    This strategy is loosely based on some of the examples from the Van
+    K. Tharp book: *Trade Your Way To Financial Freedom*. The logic:
+
+      - Enter the market if:
+        - The MACD.macd line crosses the MACD.signal line to the upside
+        - The Simple Moving Average has a negative direction in the last x
+          periods (actual value below value x periods ago)
+
+     - Set a stop price x times the ATR value away from the close
+
+     - If in the market:
+
+       - Check if the current close has gone below the stop price. If yes,
+         exit.
+       - If not, update the stop price if the new stop price would be higher
+         than the current
+    '''
+
+    params = (
+        ('use_target_size', False),
+        ('use_target_value', False),
+        ('use_target_percent', False),
+    )
+
+    def notify_order(self, order):
+        if order.status == order.Completed:
+            pass
+
+        if not order.alive():
+            self.order = None  # indicate no order is pending
+
+    def start(self):
+        self.order = None  # sentinel to avoid operrations on pending order
+
+    def next(self):
+        dt = self.data.datetime.date()
+
+        portfolio_value = self.broker.get_value()
+        print('%04d - %s - Position Size:     %02d - Value %.2f' %
+              (len(self), dt.isoformat(), self.position.size, portfolio_value))
+
+        data_value = self.broker.get_value([self.data])
+
+        if self.p.use_target_value:
+            print('%04d - %s - data value %.2f' %
+                  (len(self), dt.isoformat(), data_value))
+
+        elif self.p.use_target_percent:
+            port_perc = data_value / portfolio_value
+            print('%04d - %s - data percent %.2f' %
+                  (len(self), dt.isoformat(), port_perc))
+
+        if self.order:
+            return  # pending order execution
+
+        size = dt.day
+        if (dt.month % 2) == 0:
+            size = 31 - size
+
+        if self.p.use_target_size:
+            target = size
+            print('%04d - %s - Order Target Size: %02d' %
+                  (len(self), dt.isoformat(), size))
+
+            self.order = self.order_target_size(target=size)
+
+        elif self.p.use_target_value:
+            value = size * 1000
+
+            print('%04d - %s - Order Target Value: %.2f' %
+                  (len(self), dt.isoformat(), value))
+
+            self.order = self.order_target_value(target=value)
+
+        elif self.p.use_target_percent:
+            percent = size / 100.0
+
+            print('%04d - %s - Order Target Percent: %.2f' %
+                  (len(self), dt.isoformat(), percent))
+
+            self.order = self.order_target_percent(target=percent)
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+    cerebro.broker.setcash(args.cash)
+
+    dkwargs = dict()
+    if args.fromdate is not None:
+        dkwargs['fromdate'] = datetime.strptime(args.fromdate, '%Y-%m-%d')
+    if args.todate is not None:
+        dkwargs['todate'] = datetime.strptime(args.todate, '%Y-%m-%d')
+
+    # data
+    data = bt.feeds.YahooFinanceCSVData(dataname=args.data, **dkwargs)
+    cerebro.adddata(data)
+
+    # strategy
+    cerebro.addstrategy(TheStrategy,
+                        use_target_size=args.target_size,
+                        use_target_value=args.target_value,
+                        use_target_percent=args.target_percent)
+
+    cerebro.run()
+
+    if args.plot:
+        pkwargs = dict(style='bar')
+        if args.plot is not True:  # evals to True but is not True
+            npkwargs = eval('dict(' + args.plot + ')')  # args were passed
+            pkwargs.update(npkwargs)
+
+        cerebro.plot(**pkwargs)
+
+
+def parse_args(pargs=None):
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Sample for Order Target')
+
+    parser.add_argument('--data', required=False,
+                        default='../../datas/yhoo-1996-2015.txt',
+                        help='Specific data to be read in')
+
+    parser.add_argument('--fromdate', required=False,
+                        default='2005-01-01',
+                        help='Starting date in YYYY-MM-DD format')
+
+    parser.add_argument('--todate', required=False,
+                        default='2006-12-31',
+                        help='Ending date in YYYY-MM-DD format')
+
+    parser.add_argument('--cash', required=False, action='store',
+                        type=float, default=1000000,
+                        help='Ending date in YYYY-MM-DD format')
+
+    pgroup = parser.add_mutually_exclusive_group(required=True)
+
+    pgroup.add_argument('--target-size', required=False, action='store_true',
+                        help=('Use order_target_size'))
+
+    pgroup.add_argument('--target-value', required=False, action='store_true',
+                        help=('Use order_target_value'))
+
+    pgroup.add_argument('--target-percent', required=False,
+                        action='store_true',
+                        help=('Use order_target_percent'))
+
+    # Plot options
+    parser.add_argument('--plot', '-p', nargs='?', required=False,
+                        metavar='kwargs', const=True,
+                        help=('Plot the read data applying any kwargs passed\n'
+                              '\n'
+                              'For example:\n'
+                              '\n'
+                              '  --plot style="candle" (to plot candles)\n'))
+
+    if pargs is not None:
+        return parser.parse_args(pargs)
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Orders - OCO
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Orders - General
+Orders - Creation/Execution
+Orders - Target Orders
+Orders - OCO
+Orders - Brackets
+Orders - Future-Spot Compensation
+Orders - StopTrail
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Sample usage
+Sample Code
+OCO orders
+Release 1.9.34.116 adds OCO (aka One Cancel Others) to the backtesting arsenal.
+
+Note
+
+This is only implemented in backtesting and there isn’t yet an implementation for live brokers
+
+Note
+
+Updated with release 1.9.36.116. Interactive Brokers support for StopTrail, StopTrailLimit and OCO.
+
+OCO Specify always the 1st order in a group as parameter oco
+
+StopTrailLimit: the broker simulation and the IB broker have the asme behavior. Specify: price as the initial stop trigger price (specify also trailamount) and then plimi as the initial limit price. The difference between the two will determine the limitoffset (the distance at which the limit price remains from the stop trigger price)
+
+The usage pattern tries to remain user friendly. As such and if the logic in the strategy has decided it is the moment to issue orders, using OCO can be done like this:
+
+
+def next(self):
+    ...
+    o1 = self.buy(...)
+    ...
+    o2 = self.buy(..., oco=o1)
+    ...
+    o3 = self.buy(..., oco=o1)  # or even oco=o2, o2 is already in o1 group
+Easy. The 1st order o1 will something like the group leader. o2 and o3 become part of the OCO Group by specifying o1 with the oco named argument. See that the comment in the snippet indicates that o3 could have also become part of the group by specifying o2 (which as already part of the group)
+
+With the group formed the following will happen:
+
+If any order in the group is executed, cancelled or expires, the other orders will be cancelled
+The sample below puts the OCO concept in play. A standard execution with a plot:
+
+
+$ ./oco.py --broker cash=50000 --plot
+Note
+
+cash is increased to 50000, because the asset reaches values of 4000 and 3 orders of 1 item would require at least 12000 monetary units (the default in the broker is 10000)
+
+With the following chart.
+
+image
+
+which actually doesn’t provide much information (it is a standard SMA Crossover strategy). The sample does the following:
+
+When the fast SMA crosses the slow SMA to the upside 3 orders are issued
+
+order1 is a Limit order which will expire in limdays days (parameter to the strategy) with the close price reduced by a percentage as the limit price
+
+order2 is a Limit order with a much longer period to expire and a much more reduced limit price.
+
+order3 is a Limit order which further reduces the limit price
+
+As such the execution of order2 and order3 is not going to happen because:
+
+order1 will be executed first and this should trigger the cancellation of the others
+or
+
+order1 will expire and this will trigger the the cancellation of the others
+The system keeps the ref identifier of the 3 orders and will only issue new buy orders if the three ref identifiers are seen in notify_order as either Completed, Cancelled, Margin or Expired
+
+Exiting is simply done after holding the position for some bars.
+
+To try to keep track of the actual execution, textual output is produced. Some of it:
+
+
+2005-01-28: Oref 1 / Buy at 2941.11055
+2005-01-28: Oref 2 / Buy at 2896.7722
+2005-01-28: Oref 3 / Buy at 2822.87495
+2005-01-31: Order ref: 1 / Type Buy / Status Submitted
+2005-01-31: Order ref: 2 / Type Buy / Status Submitted
+2005-01-31: Order ref: 3 / Type Buy / Status Submitted
+2005-01-31: Order ref: 1 / Type Buy / Status Accepted
+2005-01-31: Order ref: 2 / Type Buy / Status Accepted
+2005-01-31: Order ref: 3 / Type Buy / Status Accepted
+2005-02-01: Order ref: 1 / Type Buy / Status Expired
+2005-02-01: Order ref: 3 / Type Buy / Status Canceled
+2005-02-01: Order ref: 2 / Type Buy / Status Canceled
+...
+2006-06-23: Oref 49 / Buy at 3532.39925
+2006-06-23: Oref 50 / Buy at 3479.147
+2006-06-23: Oref 51 / Buy at 3390.39325
+2006-06-26: Order ref: 49 / Type Buy / Status Submitted
+2006-06-26: Order ref: 50 / Type Buy / Status Submitted
+2006-06-26: Order ref: 51 / Type Buy / Status Submitted
+2006-06-26: Order ref: 49 / Type Buy / Status Accepted
+2006-06-26: Order ref: 50 / Type Buy / Status Accepted
+2006-06-26: Order ref: 51 / Type Buy / Status Accepted
+2006-06-26: Order ref: 49 / Type Buy / Status Completed
+2006-06-26: Order ref: 51 / Type Buy / Status Canceled
+2006-06-26: Order ref: 50 / Type Buy / Status Canceled
+...
+2006-11-10: Order ref: 61 / Type Buy / Status Canceled
+2006-12-11: Oref 63 / Buy at 4032.62555
+2006-12-11: Oref 64 / Buy at 3971.8322
+2006-12-11: Oref 65 / Buy at 3870.50995
+2006-12-12: Order ref: 63 / Type Buy / Status Submitted
+2006-12-12: Order ref: 64 / Type Buy / Status Submitted
+2006-12-12: Order ref: 65 / Type Buy / Status Submitted
+2006-12-12: Order ref: 63 / Type Buy / Status Accepted
+2006-12-12: Order ref: 64 / Type Buy / Status Accepted
+2006-12-12: Order ref: 65 / Type Buy / Status Accepted
+2006-12-15: Order ref: 63 / Type Buy / Status Expired
+2006-12-15: Order ref: 65 / Type Buy / Status Canceled
+2006-12-15: Order ref: 64 / Type Buy / Status Canceled
+With the following happening:
+
+The 1st batch of orders is issued. Order 1 expires and 2 and 3 are cancelled. As expected.
+
+Some months later another batch of 3 orders is issued. In this case Order 49 gets Completed and 50 and 51 are immediately cancelled
+
+The last batch is just like the 1st
+
+Let’s check now the behavior without OCO:
+
+
+$ ./oco.py --strat do_oco=False --broker cash=50000
+
+2005-01-28: Oref 1 / Buy at 2941.11055
+2005-01-28: Oref 2 / Buy at 2896.7722
+2005-01-28: Oref 3 / Buy at 2822.87495
+2005-01-31: Order ref: 1 / Type Buy / Status Submitted
+2005-01-31: Order ref: 2 / Type Buy / Status Submitted
+2005-01-31: Order ref: 3 / Type Buy / Status Submitted
+2005-01-31: Order ref: 1 / Type Buy / Status Accepted
+2005-01-31: Order ref: 2 / Type Buy / Status Accepted
+2005-01-31: Order ref: 3 / Type Buy / Status Accepted
+2005-02-01: Order ref: 1 / Type Buy / Status Expired
+And that’s it, which isn’t much (no order execution, not much need for a chart either)
+
+The batch of orders is issued
+
+Order 1 expires, but because the strategy has gotten the parameter do_oco=False, orders 2 and 3 are not made part of the OCO group
+
+Orders 2 and 3 are therefore not cancelled and because the default expiration delta is 1000 days later, they never expire with the available data for the sample (2 years of data)
+
+The system never issues a 2nd bath of orders.
+
+Sample usage
+
+$ ./oco.py --help
+usage: oco.py [-h] [--data0 DATA0] [--fromdate FROMDATE] [--todate TODATE]
+              [--cerebro kwargs] [--broker kwargs] [--sizer kwargs]
+              [--strat kwargs] [--plot [kwargs]]
+
+Sample Skeleton
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --data0 DATA0        Data to read in (default:
+                       ../../datas/2005-2006-day-001.txt)
+  --fromdate FROMDATE  Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --todate TODATE      Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --cerebro kwargs     kwargs in key=value format (default: )
+  --broker kwargs      kwargs in key=value format (default: )
+  --sizer kwargs       kwargs in key=value format (default: )
+  --strat kwargs       kwargs in key=value format (default: )
+  --plot [kwargs]      kwargs in key=value format (default: )
+Sample Code
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class St(bt.Strategy):
+    params = dict(
+        ma=bt.ind.SMA,
+        p1=5,
+        p2=15,
+        limit=0.005,
+        limdays=3,
+        limdays2=1000,
+        hold=10,
+        switchp1p2=False,  # switch prices of order1 and order2
+        oco1oco2=False,  # False - use order1 as oco for order3, else order2
+        do_oco=True,  # use oco or not
+    )
+
+    def notify_order(self, order):
+        print('{}: Order ref: {} / Type {} / Status {}'.format(
+            self.data.datetime.date(0),
+            order.ref, 'Buy' * order.isbuy() or 'Sell',
+            order.getstatusname()))
+
+        if order.status == order.Completed:
+            self.holdstart = len(self)
+
+        if not order.alive() and order.ref in self.orefs:
+            self.orefs.remove(order.ref)
+
+    def __init__(self):
+        ma1, ma2 = self.p.ma(period=self.p.p1), self.p.ma(period=self.p.p2)
+        self.cross = bt.ind.CrossOver(ma1, ma2)
+
+        self.orefs = list()
+
+    def next(self):
+        if self.orefs:
+            return  # pending orders do nothing
+
+        if not self.position:
+            if self.cross > 0.0:  # crossing up
+
+                p1 = self.data.close[0] * (1.0 - self.p.limit)
+                p2 = self.data.close[0] * (1.0 - 2 * 2 * self.p.limit)
+                p3 = self.data.close[0] * (1.0 - 3 * 3 * self.p.limit)
+
+                if self.p.switchp1p2:
+                    p1, p2 = p2, p1
+
+                o1 = self.buy(exectype=bt.Order.Limit, price=p1,
+                              valid=datetime.timedelta(self.p.limdays))
+
+                print('{}: Oref {} / Buy at {}'.format(
+                    self.datetime.date(), o1.ref, p1))
+
+                oco2 = o1 if self.p.do_oco else None
+                o2 = self.buy(exectype=bt.Order.Limit, price=p2,
+                              valid=datetime.timedelta(self.p.limdays2),
+                              oco=oco2)
+
+                print('{}: Oref {} / Buy at {}'.format(
+                    self.datetime.date(), o2.ref, p2))
+
+                if self.p.do_oco:
+                    oco3 = o1 if not self.p.oco1oco2 else oco2
+                else:
+                    oco3 = None
+
+                o3 = self.buy(exectype=bt.Order.Limit, price=p3,
+                              valid=datetime.timedelta(self.p.limdays2),
+                              oco=oco3)
+
+                print('{}: Oref {} / Buy at {}'.format(
+                    self.datetime.date(), o3.ref, p3))
+
+                self.orefs = [o1.ref, o2.ref, o3.ref]
+
+        else:  # in the market
+            if (len(self) - self.holdstart) >= self.p.hold:
+                self.close()
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    kwargs = dict()
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    # Data feed
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **kwargs)
+    cerebro.adddata(data0)
+
+    # Broker
+    cerebro.broker = bt.brokers.BackBroker(**eval('dict(' + args.broker + ')'))
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Strategy
+    cerebro.addstrategy(St, **eval('dict(' + args.strat + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'Sample Skeleton'
+        )
+    )
+
+    parser.add_argument('--data0', default='../../datas/2005-2006-day-001.txt',
+                        required=False, help='Data to read in')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Orders - Brackets
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Orders - General
+Orders - Creation/Execution
+Orders - Target Orders
+Orders - OCO
+Orders - Brackets
+Orders - Future-Spot Compensation
+Orders - StopTrail
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Usage Pattern
+Single Issuing of a Bracket
+Manual Issuing of a Bracket
+A sample of it
+Some reference
+Sample usage
+Sample Code
+Bracket Orders
+Release 1.9.37.116 adds bracket orders giving a very broad spectrum of orders which are supported by the backtesting broker (Market, Limit, Close, Stop, StopLimit, StopTrail, StopTrailLimit, OCO)
+
+Note
+
+This is implemented for backtesting and for the Interactivers Brokers store
+
+A bracket order isn’s a single order but it is actually made up of 3 orders. Let’s consider the long side
+
+A main side buy order, usually set to be a Limit or StopLimit order
+
+A low side sell order, usually set to be a Stop order to limit losses
+
+A high side sell order, usually set to be a Limit order to take profit
+
+With corresponding sell and 2 x buy orders for the short side.
+
+The low/high side orders do actually create a bracket around the main side order.
+
+To put some logic into it, the following rules apply:
+
+The 3 orders are submitted together to avoid having any of them triggered independently
+
+The low/high side orders are marked as children of the main side
+
+The children are not active until the main side is executed
+
+The cancellation of the main side cancels both the low and high side
+
+The execution of the main side activates both the low and high side
+
+Upon being active
+
+The execution or cancellation of any of low/high side orders automatically cancels the other
+Usage Pattern
+There are two possibilities to create the bracket set of orders
+
+Single issuing of the 3 orders
+
+Manual issuing of the 3 orders
+
+Single Issuing of a Bracket
+backtrader offers two new methods in the Strategy to control bracket orders.
+
+buy_bracket and sell_bracket
+Note
+
+Signature and info below or in the Strategy reference section.
+
+With a single statement a complete set of 3 orders. An example:
+
+
+brackets = self.buy_bracket(limitprice=14.00, price=13.50, stopprice=13.00)
+Notice how stopprice and limitprice wrap the main price
+
+This should be enough. The actual target data would be data0 and the size would be automatically determined by the default sizer. Of course both and many other parameters can be specified to have a fine control of the execution.
+
+The return value is:
+
+A list containing the 3 orders in this order: [main, stop, limit]
+Because when issuing a sell_bracket order, the low and high sides would be turned aound, the parameters are named following convention stop and limit
+
+stop is meant to stop the losses (low side in a long operation, and high side in a short operation)
+
+limit is meant to take the profit (high side in a long operation and low side in a short operation)
+
+Manual Issuing of a Bracket
+This involves the generation of the 3 orders and playing around with the transmit and parent arguments. The rules:
+
+The main side order must be created 1st and have transmit=False
+
+The low/high side orders must have parent=main_side_order
+
+The 1st low/high side order to be created must have transmit=False
+
+The last order to be created (either the low or high side) sets transmit=True
+
+A practical example doing what the single command from above did:
+
+
+mainside = self.buy(price=13.50, exectype=bt.Order.Limit, transmit=False)
+lowside  = self.sell(price=13.00, size=mainside.size, exectype=bt.Order.Stop,
+                     transmit=False, parent=mainside)
+highside = self.sell(price=14.00, size=mainside.size, exectype=bt.Order.Limit,
+                     transmit=True, parent=mainside)
+Where there is a lot more to do:
+
+Keep track of the mainside order to indicate it is the parent of the others
+
+Control transmit to make sure only the last order triggers the joint transmission
+
+Specify the execution types
+
+Specify the size for the low and high side
+
+Because the size MUST be the same. If the parameter were not specified manually and the end user had introduced a sizer, the sizer could actually indicate a different value for the orders. That’s why it has to be manually added to the calls after it has been set for the mainside order.
+
+A sample of it
+Running the sample from below produces this output (capped for brevity)
+
+
+$ ./bracket.py --plot
+
+2005-01-28: Oref 1 / Buy at 2941.11055
+2005-01-28: Oref 2 / Sell Stop at 2881.99275
+2005-01-28: Oref 3 / Sell Limit at 3000.22835
+2005-01-31: Order ref: 1 / Type Buy / Status Submitted
+2005-01-31: Order ref: 2 / Type Sell / Status Submitted
+2005-01-31: Order ref: 3 / Type Sell / Status Submitted
+2005-01-31: Order ref: 1 / Type Buy / Status Accepted
+2005-01-31: Order ref: 2 / Type Sell / Status Accepted
+2005-01-31: Order ref: 3 / Type Sell / Status Accepted
+2005-02-01: Order ref: 1 / Type Buy / Status Expired
+2005-02-01: Order ref: 2 / Type Sell / Status Canceled
+2005-02-01: Order ref: 3 / Type Sell / Status Canceled
+...
+2005-08-11: Oref 16 / Buy at 3337.3892
+2005-08-11: Oref 17 / Sell Stop at 3270.306
+2005-08-11: Oref 18 / Sell Limit at 3404.4724
+2005-08-12: Order ref: 16 / Type Buy / Status Submitted
+2005-08-12: Order ref: 17 / Type Sell / Status Submitted
+2005-08-12: Order ref: 18 / Type Sell / Status Submitted
+2005-08-12: Order ref: 16 / Type Buy / Status Accepted
+2005-08-12: Order ref: 17 / Type Sell / Status Accepted
+2005-08-12: Order ref: 18 / Type Sell / Status Accepted
+2005-08-12: Order ref: 16 / Type Buy / Status Completed
+2005-08-18: Order ref: 17 / Type Sell / Status Completed
+2005-08-18: Order ref: 18 / Type Sell / Status Canceled
+...
+2005-09-26: Oref 22 / Buy at 3383.92535
+2005-09-26: Oref 23 / Sell Stop at 3315.90675
+2005-09-26: Oref 24 / Sell Limit at 3451.94395
+2005-09-27: Order ref: 22 / Type Buy / Status Submitted
+2005-09-27: Order ref: 23 / Type Sell / Status Submitted
+2005-09-27: Order ref: 24 / Type Sell / Status Submitted
+2005-09-27: Order ref: 22 / Type Buy / Status Accepted
+2005-09-27: Order ref: 23 / Type Sell / Status Accepted
+2005-09-27: Order ref: 24 / Type Sell / Status Accepted
+2005-09-27: Order ref: 22 / Type Buy / Status Completed
+2005-10-04: Order ref: 24 / Type Sell / Status Completed
+2005-10-04: Order ref: 23 / Type Sell / Status Canceled
+...
+Where 3 different outcomes are shown:
+
+In the 1st case the main side order expired and this automatically cancelled the other two
+
+In the 2nd case the main side order was completed and the low (stop in the buy case) was executed limiting losses
+
+In the 3rd case the main side order was completed and the high side (limit) was executed
+
+This can be noticed because the Completed ids are 22 and 24 and the high side order is being issued last, which means the non-executed low side order has id 23.
+
+Visually
+
+image
+
+It can be immediately seen that the losing trades align around the same value and winning trades too, which is the purpose of the backeting. Controlling both sides.
+
+The sample as run issues the 3 orders manually, but it can be told to use buy_bracket. Let’s see the output:
+
+
+$ ./bracket.py --strat usebracket=True
+With the same result
+
+image
+
+Some reference
+See the new buy_bracket and sell_bracket methods
+
+
+def buy_bracket(self, data=None, size=None, price=None, plimit=None,
+                exectype=bt.Order.Limit, valid=None, tradeid=0,
+                trailamount=None, trailpercent=None, oargs={},
+                stopprice=None, stopexec=bt.Order.Stop, stopargs={},
+                limitprice=None, limitexec=bt.Order.Limit, limitargs={},
+                **kwargs):
+    '''
+    Create a bracket order group (low side - buy order - high side). The
+    default behavior is as follows:
+
+      - Issue a **buy** order with execution ``Limit`
+
+      - Issue a *low side* bracket **sell** order with execution ``Stop``
+
+      - Issue a *high side* bracket **sell** order with execution
+        ``Limit``.
+
+    See below for the different parameters
+
+      - ``data`` (default: ``None``)
+
+        For which data the order has to be created. If ``None`` then the
+        first data in the system, ``self.datas[0] or self.data0`` (aka
+        ``self.data``) will be used
+
+      - ``size`` (default: ``None``)
+
+        Size to use (positive) of units of data to use for the order.
+
+        If ``None`` the ``sizer`` instance retrieved via ``getsizer`` will
+        be used to determine the size.
+
+        **Note**: The same size is applied to all 3 orders of the bracket
+
+      - ``price`` (default: ``None``)
+
+        Price to use (live brokers may place restrictions on the actual
+        format if it does not comply to minimum tick size requirements)
+
+        ``None`` is valid for ``Market`` and ``Close`` orders (the market
+        determines the price)
+
+        For ``Limit``, ``Stop`` and ``StopLimit`` orders this value
+        determines the trigger point (in the case of ``Limit`` the trigger
+        is obviously at which price the order should be matched)
+
+      - ``plimit`` (default: ``None``)
+
+        Only applicable to ``StopLimit`` orders. This is the price at which
+        to set the implicit *Limit* order, once the *Stop* has been
+        triggered (for which ``price`` has been used)
+
+      - ``trailamount`` (default: ``None``)
+
+        If the order type is StopTrail or StopTrailLimit, this is an
+        absolute amount which determines the distance to the price (below
+        for a Sell order and above for a buy order) to keep the trailing
+        stop
+
+      - ``trailpercent`` (default: ``None``)
+
+        If the order type is StopTrail or StopTrailLimit, this is a
+        percentage amount which determines the distance to the price (below
+        for a Sell order and above for a buy order) to keep the trailing
+        stop (if ``trailamount`` is also specified it will be used)
+
+      - ``exectype`` (default: ``bt.Order.Limit``)
+
+        Possible values: (see the documentation for the method ``buy``
+
+      - ``valid`` (default: ``None``)
+
+        Possible values: (see the documentation for the method ``buy``
+
+      - ``tradeid`` (default: ``0``)
+
+        Possible values: (see the documentation for the method ``buy``
+
+      - ``oargs`` (default: ``{}``)
+
+        Specific keyword arguments (in a ``dict``) to pass to the main side
+        order. Arguments from the default ``**kwargs`` will be applied on
+        top of this.
+
+      - ``**kwargs``: additional broker implementations may support extra
+        parameters. ``backtrader`` will pass the *kwargs* down to the
+        created order objects
+
+        Possible values: (see the documentation for the method ``buy``
+
+        **Note**: this ``kwargs`` will be applied to the 3 orders of a
+        bracket. See below for specific keyword arguments for the low and
+        high side orders
+
+      - ``stopprice`` (default: ``None``)
+
+        Specific price for the *low side* stop order
+
+      - ``stopexec`` (default: ``bt.Order.Stop``)
+
+        Specific execution type for the *low side* order
+
+      - ``stopargs`` (default: ``{}``)
+
+        Specific keyword arguments (in a ``dict``) to pass to the low side
+        order. Arguments from the default ``**kwargs`` will be applied on
+        top of this.
+
+      - ``limitprice`` (default: ``None``)
+
+        Specific price for the *high side* stop order
+
+      - ``stopexec`` (default: ``bt.Order.Limit``)
+
+        Specific execution type for the *high side* order
+
+      - ``limitargs`` (default: ``{}``)
+
+        Specific keyword arguments (in a ``dict``) to pass to the high side
+        order. Arguments from the default ``**kwargs`` will be applied on
+        top of this.
+
+    Returns:
+      - A list containing the 3 bracket orders [order, stop side, limit
+        side]
+    '''
+
+def sell_bracket(self, data=None,
+                 size=None, price=None, plimit=None,
+                 exectype=bt.Order.Limit, valid=None, tradeid=0,
+                 trailamount=None, trailpercent=None,
+                 oargs={},
+                 stopprice=None, stopexec=bt.Order.Stop, stopargs={},
+                 limitprice=None, limitexec=bt.Order.Limit, limitargs={},
+                 **kwargs):
+    '''
+    Create a bracket order group (low side - buy order - high side). The
+    default behavior is as follows:
+
+      - Issue a **sell** order with execution ``Limit`
+
+      - Issue a *high side* bracket **buy** order with execution ``Stop``
+
+      - Issue a *low side* bracket **buy** order with execution ``Limit``.
+
+    See ``bracket_buy`` for the meaning of the parameters
+
+    Returns:
+      - A list containing the 3 bracket orders [order, stop side, limit
+        side]
+    '''
+Sample usage
+
+$ ./bracket.py --help
+usage: bracket.py [-h] [--data0 DATA0] [--fromdate FROMDATE] [--todate TODATE]
+                  [--cerebro kwargs] [--broker kwargs] [--sizer kwargs]
+                  [--strat kwargs] [--plot [kwargs]]
+
+Sample Skeleton
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --data0 DATA0        Data to read in (default:
+                       ../../datas/2005-2006-day-001.txt)
+  --fromdate FROMDATE  Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --todate TODATE      Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --cerebro kwargs     kwargs in key=value format (default: )
+  --broker kwargs      kwargs in key=value format (default: )
+  --sizer kwargs       kwargs in key=value format (default: )
+  --strat kwargs       kwargs in key=value format (default: )
+  --plot [kwargs]      kwargs in key=value format (default: )
+Sample Code
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class St(bt.Strategy):
+    params = dict(
+        ma=bt.ind.SMA,
+        p1=5,
+        p2=15,
+        limit=0.005,
+        limdays=3,
+        limdays2=1000,
+        hold=10,
+        usebracket=False,  # use order_target_size
+        switchp1p2=False,  # switch prices of order1 and order2
+    )
+
+    def notify_order(self, order):
+        print('{}: Order ref: {} / Type {} / Status {}'.format(
+            self.data.datetime.date(0),
+            order.ref, 'Buy' * order.isbuy() or 'Sell',
+            order.getstatusname()))
+
+        if order.status == order.Completed:
+            self.holdstart = len(self)
+
+        if not order.alive() and order.ref in self.orefs:
+            self.orefs.remove(order.ref)
+
+    def __init__(self):
+        ma1, ma2 = self.p.ma(period=self.p.p1), self.p.ma(period=self.p.p2)
+        self.cross = bt.ind.CrossOver(ma1, ma2)
+
+        self.orefs = list()
+
+        if self.p.usebracket:
+            print('-' * 5, 'Using buy_bracket')
+
+    def next(self):
+        if self.orefs:
+            return  # pending orders do nothing
+
+        if not self.position:
+            if self.cross > 0.0:  # crossing up
+
+                close = self.data.close[0]
+                p1 = close * (1.0 - self.p.limit)
+                p2 = p1 - 0.02 * close
+                p3 = p1 + 0.02 * close
+
+                valid1 = datetime.timedelta(self.p.limdays)
+                valid2 = valid3 = datetime.timedelta(self.p.limdays2)
+
+                if self.p.switchp1p2:
+                    p1, p2 = p2, p1
+                    valid1, valid2 = valid2, valid1
+
+                if not self.p.usebracket:
+                    o1 = self.buy(exectype=bt.Order.Limit,
+                                  price=p1,
+                                  valid=valid1,
+                                  transmit=False)
+
+                    print('{}: Oref {} / Buy at {}'.format(
+                        self.datetime.date(), o1.ref, p1))
+
+                    o2 = self.sell(exectype=bt.Order.Stop,
+                                   price=p2,
+                                   valid=valid2,
+                                   parent=o1,
+                                   transmit=False)
+
+                    print('{}: Oref {} / Sell Stop at {}'.format(
+                        self.datetime.date(), o2.ref, p2))
+
+                    o3 = self.sell(exectype=bt.Order.Limit,
+                                   price=p3,
+                                   valid=valid3,
+                                   parent=o1,
+                                   transmit=True)
+
+                    print('{}: Oref {} / Sell Limit at {}'.format(
+                        self.datetime.date(), o3.ref, p3))
+
+                    self.orefs = [o1.ref, o2.ref, o3.ref]
+
+                else:
+                    os = self.buy_bracket(
+                        price=p1, valid=valid1,
+                        stopprice=p2, stopargs=dict(valid=valid2),
+                        limitprice=p3, limitargs=dict(valid=valid3),)
+
+                    self.orefs = [o.ref for o in os]
+
+        else:  # in the market
+            if (len(self) - self.holdstart) >= self.p.hold:
+                pass  # do nothing in this case
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    kwargs = dict()
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    # Data feed
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **kwargs)
+    cerebro.adddata(data0)
+
+    # Broker
+    cerebro.broker = bt.brokers.BackBroker(**eval('dict(' + args.broker + ')'))
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Strategy
+    cerebro.addstrategy(St, **eval('dict(' + args.strat + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'Sample Skeleton'
+        )
+    )
+
+    parser.add_argument('--data0', default='../../datas/2005-2006-day-001.txt',
+                        required=False, help='Data to read in')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Orders - Future-Spot Compensation
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Orders - General
+Orders - Creation/Execution
+Orders - Target Orders
+Orders - OCO
+Orders - Brackets
+Orders - Future-Spot Compensation
+Orders - StopTrail
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Putting it all together
+Sample Usage
+Sample Code
+Futures and Spot Compensation
+Release 1.9.32.116 adds support for an interesting use case presented in the Community
+
+Start a trade with a future, which includes physical delivery
+
+Have an indicator tell you something
+
+If needed be, close the position by operating on the spot price, effectively canceling the physical delivery, be it for receiving the goods or for having to deliver them (and hopefully making a profit)
+
+The future expires on the same day the operation on the spot price takes place
+
+That means:
+
+The platform is fed with data points from two different assets
+
+The platform has to somehow understand the assets are related and that operations on the spot price will close positions open on the future
+
+In reality, the future is not closed, only the physical delivery is compensated
+
+Using that compensation concept, backtrader adds a way to let the user communicate to the platform that things on one data feed will have compensating effects on another. The usage pattern
+
+
+import backtrader as bt
+
+cerebro = bt.Cerebro()
+
+data0 = bt.feeds.MyFavouriteDataFeed(dataname='futurename')
+cerebro.adddata(data0)
+
+data1 = bt.feeds.MyFavouriteDataFeed(dataname='spotname')
+data1.compensate(data0)  # let the system know ops on data1 affect data0
+cerebro.adddata(data1)
+
+...
+
+cerebro.run()
+Putting it all together
+An example is always worth a thousand posts, so let’s put all the pieces together for it.
+
+Use one of the standard sample feeds from the backtrader sources. This will be the future
+
+Simulate a similar but distinct price, by reusing the same feed and adding a filter which will randomly move the price some points above/below, to create a spread. As simple as:
+
+
+# The filter which changes the close price
+def close_changer(data, *args, **kwargs):
+    data.close[0] += 50.0 * random.randint(-1, 1)
+    return False  # length of stream is unchanged
+Plotting on the same axis will mix the default included BuyObserver markers and therefore the standard observers will be disabled and manually readded to plot with different per-data markers
+
+Positions will be entered randomly and exited 10 days later
+
+This doesn’t match future expiration periods, but this is just putting the functionality in place and not checking a trading calendar
+
+!!! note
+
+
+  A simulation including execution on the spot price on the day of
+  future expiration would require activating `cheat-on-close` to
+  make sure the orders are executed when the future expires. This is
+  not needed in this sample, because the expiration is being chosen
+  at random.
+Notice that the strategy
+
+buy operations are executed on data0
+
+sell operations are executed on data1
+
+
+class St(bt.Strategy):
+    def __init__(self):
+        bt.obs.BuySell(self.data0, barplot=True)  # done here for
+        BuySellArrows(self.data1, barplot=True)  # different markers per data
+
+    def next(self):
+        if not self.position:
+            if random.randint(0, 1):
+                self.buy(data=self.data0)
+                self.entered = len(self)
+
+        else:  # in the market
+            if (len(self) - self.entered) >= 10:
+                self.sell(data=self.data1)
+The execution:
+
+
+$ ./future-spot.py --no-comp
+With this graphical output.
+
+image
+
+And it works:
+
+buy operations are signaled with a green triangle pointing upwards and the legend tells us they belong to data0 as expected
+
+sell operations are signaled with an arrow pointing downwards and the legend tells us they belong to data1 as expected
+
+Trades are being closed, even if they are being open with data0 and being closed with data1, achieving the desired effect (which in real life is avoiding the physical delivery of the goods acquired by means of the future)
+
+One could only imagine what would happen if the same logic is applied without the compensation taking place. Let’s do it:
+
+
+$ ./future-spot.py --no-comp
+And the output
+
+image
+
+It should be quite obvious that this fails miserably:
+
+The logic expects positions on data0 to be closed by the operations on data1 and to only open positions on data0 when not in the market
+
+But compensation has been deactivated and the intial operation on data0 (green triangle) is never closed, so no other operation can never be initiated and short positions on data1 start accumulating.
+
+Sample Usage
+
+$ ./future-spot.py --help
+usage: future-spot.py [-h] [--no-comp]
+
+Compensation example
+
+optional arguments:
+  -h, --help  show this help message and exit
+  --no-comp
+Sample Code
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import random
+import backtrader as bt
+
+
+# The filter which changes the close price
+def close_changer(data, *args, **kwargs):
+    data.close[0] += 50.0 * random.randint(-1, 1)
+    return False  # length of stream is unchanged
+
+
+# override the standard markers
+class BuySellArrows(bt.observers.BuySell):
+    plotlines = dict(buy=dict(marker='$\u21E7$', markersize=12.0),
+                     sell=dict(marker='$\u21E9$', markersize=12.0))
+
+
+class St(bt.Strategy):
+    def __init__(self):
+        bt.obs.BuySell(self.data0, barplot=True)  # done here for
+        BuySellArrows(self.data1, barplot=True)  # different markers per data
+
+    def next(self):
+        if not self.position:
+            if random.randint(0, 1):
+                self.buy(data=self.data0)
+                self.entered = len(self)
+
+        else:  # in the market
+            if (len(self) - self.entered) >= 10:
+                self.sell(data=self.data1)
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+    cerebro = bt.Cerebro()
+
+    dataname = '../../datas/2006-day-001.txt'  # data feed
+
+    data0 = bt.feeds.BacktraderCSVData(dataname=dataname, name='data0')
+    cerebro.adddata(data0)
+
+    data1 = bt.feeds.BacktraderCSVData(dataname=dataname, name='data1')
+    data1.addfilter(close_changer)
+    if not args.no_comp:
+        data1.compensate(data0)
+    data1.plotinfo.plotmaster = data0
+    cerebro.adddata(data1)
+
+    cerebro.addstrategy(St)  # sample strategy
+
+    cerebro.addobserver(bt.obs.Broker)  # removed below with stdstats=False
+    cerebro.addobserver(bt.obs.Trades)  # removed below with stdstats=False
+
+    cerebro.broker.set_coc(True)
+    cerebro.run(stdstats=False)  # execute
+    cerebro.plot(volume=False)  # and plot
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=('Compensation example'))
+
+    parser.add_argument('--no-comp', required=False, action='store_true')
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+Skip to content
+logo
+Backtrader
+Orders - StopTrail
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Orders - General
+Orders - Creation/Execution
+Orders - Target Orders
+Orders - OCO
+Orders - Brackets
+Orders - Future-Spot Compensation
+Orders - StopTrail
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+StopTrail(Limit)
+Release 1.9.35.116 adds the StopTrail and StopTrailLimit order execution types to the backtesting arsenal.
+
+Note
+
+This is only implemented in backtesting and there isn’t yet an implementation for live brokers
+
+Note
+
+Updated with release 1.9.36.116. Interactive Brokers support for StopTrail, StopTrailLimit and OCO.
+
+OCO Specify always the 1st order in a group as parameter oco
+
+StopTrailLimit: the broker simulation and the IB broker have the same behavior. Specify: price as the initial stop trigger price (specify also trailamount) and then plimi as the initial limit price. The difference between the two will determine the limitoffset (the distance at which the limit price remains from the stop trigger price)
+
+The usage pattern is fully integrated into the standard buy, sell and close market operation methods of the strategy instances. To notice:
+
+Indicate which execution type is wished as in exectype=bt.Order.StopTrail
+
+And whether the trailing price must be calculated with a fixed distance or with a percentage based distance
+
+Fixed distance: trailamount=10
+
+Percentage based distance: trailpercent=0.02 (i.e.: 2%)
+
+If one has entered the market long by issuing a buy, this is what a sell with StopTrail and trailamount does:
+
+If no price is specified, the latest close price is used
+
+trailamount is substracted from the price to find the stop (or trigger) price
+
+The next iteration of the broker checks if the trigger price has been reached
+
+If Yes: the order is executed with a Market execution type approach
+
+If No, the stop price is recalculated by using the latest close price and substracting the trailamount distance
+
+If the new price goes up, it is updated
+
+If the new price would go down (or not change at all), it is discarded
+
+That is: the trailing stop price follows the price upwards, but remains fixed if the prices start falling, to potentially secure a profit.
+
+If one had entered the market with a sell, then issuing a buy order with StopTrail simply does the opposite, i.e.: prices are followed downwards.
+
+Some usage patterns
+
+
+# For a StopTrail going downwards
+# last price will be used as reference
+self.buy(size=1, exectype=bt.Order.StopTrail, trailamount=0.25)
+# or
+self.buy(size=1, exectype=bt.Order.StopTrail, price=10.50, trailamount=0.25)
+
+# For a StopTrail going upwards
+# last price will be used as reference
+self.sell(size=1, exectype=bt.Order.StopTrail, trailamount=0.25)
+# or
+self.sell(size=1, exectype=bt.Order.StopTrail, price=10.50, trailamount=0.25)
+One can also specify trailpercent instead of trailamount and the distance to the price will be calculated as a percentage of the price
+
+
+# For a StopTrail going downwards with 2% distance
+# last price will be used as reference
+self.buy(size=1, exectype=bt.Order.StopTrail, trailpercent=0.02)
+# or
+self.buy(size=1, exectype=bt.Order.StopTrail, price=10.50, trailpercent=0.0.02)
+
+# For a StopTrail going upwards with 2% difference
+# last price will be used as reference
+self.sell(size=1, exectype=bt.Order.StopTrail, trailpercent=0.02)
+# or
+self.sell(size=1, exectype=bt.Order.StopTrail, price=10.50, trailpercent=0.02)
+For a StopTrailLimit
+
+The only difference is what happens when the trailing stop price is triggered.
+
+In this case the order is executed as a Limit order (the same behavior a StopLimit order has, but in this case with a dynamic triggering price)
+
+NOTE: one has to specify plimit=x.x to buy or sell, which will be the limit price
+
+NOTE: the limit price is not changed dynamically like the stop/trigger price
+
+An example is always worth a thousand words and hence the usual backtrader sample, which
+
+Uses a moving average crossing up to enter the market long
+
+Uses a trailing stop to exit the market
+
+The execution with 50 points of fixed price distance
+
+
+$ ./trail.py --plot --strat trailamount=50.0
+Which produces the following chart
+
+image
+
+And the following output:
+
+
+**************************************************
+2005-02-14,3075.76,3025.76,3025.76
+----------
+2005-02-15,3086.95,3036.95,3036.95
+2005-02-16,3068.55,3036.95,3018.55
+2005-02-17,3067.34,3036.95,3017.34
+2005-02-18,3072.04,3036.95,3022.04
+2005-02-21,3063.64,3036.95,3013.64
+...
+...
+**************************************************
+2005-05-19,3051.79,3001.79,3001.79
+----------
+2005-05-20,3050.45,3001.79,3000.45
+2005-05-23,3070.98,3020.98,3020.98
+2005-05-24,3066.55,3020.98,3016.55
+2005-05-25,3059.84,3020.98,3009.84
+2005-05-26,3086.08,3036.08,3036.08
+2005-05-27,3084.0,3036.08,3034.0
+2005-05-30,3096.54,3046.54,3046.54
+2005-05-31,3076.75,3046.54,3026.75
+2005-06-01,3125.88,3075.88,3075.88
+2005-06-02,3131.03,3081.03,3081.03
+2005-06-03,3114.27,3081.03,3064.27
+2005-06-06,3099.2,3081.03,3049.2
+2005-06-07,3134.82,3084.82,3084.82
+2005-06-08,3125.59,3084.82,3075.59
+2005-06-09,3122.93,3084.82,3072.93
+2005-06-10,3143.85,3093.85,3093.85
+2005-06-13,3159.83,3109.83,3109.83
+2005-06-14,3162.86,3112.86,3112.86
+2005-06-15,3147.55,3112.86,3097.55
+2005-06-16,3160.09,3112.86,3110.09
+2005-06-17,3178.48,3128.48,3128.48
+2005-06-20,3162.14,3128.48,3112.14
+2005-06-21,3179.62,3129.62,3129.62
+2005-06-22,3182.08,3132.08,3132.08
+2005-06-23,3190.8,3140.8,3140.8
+2005-06-24,3161.0,3140.8,3111.0
+...
+...
+...
+**************************************************
+2006-12-19,4100.48,4050.48,4050.48
+----------
+2006-12-20,4118.54,4068.54,4068.54
+2006-12-21,4112.1,4068.54,4062.1
+2006-12-22,4073.5,4068.54,4023.5
+2006-12-27,4134.86,4084.86,4084.86
+2006-12-28,4130.66,4084.86,4080.66
+2006-12-29,4119.94,4084.86,4069.94
+Rather than waiting for the usual cross down pattern the system uses the trailing stop to exit the market. Let’s see the 1st operation for example
+
+Closing price when entering long: 3075.76
+
+System calculated trail stop price: 3025.76 (which is 50 units away)
+
+Sample calculated trail stop price: 3025.76 (last price shown in each line)
+
+After this first calculation:
+
+The closing price goes up to 3086.95 and the stop price is adjusted to 3036.95
+
+The following closing prices don’t exceed 3086.95 and the trigger price doesn’t change
+
+The same pattern can be seen in the other 2 operations.
+
+For the sake of comparison, an execution with just 30 points of fixed distance (just the chart)
+
+
+$ ./trail.py --plot --strat trailamount=30.0
+And the chart
+
+image
+
+Followed by one last execution with trailpercent=0.02
+
+
+$ ./trail.py --plot --strat trailpercent=0.02
+The corresponding chart.
+
+image
+
+The sample usage
+
+
+$ ./trail.py --help
+usage: trail.py [-h] [--data0 DATA0] [--fromdate FROMDATE] [--todate TODATE]
+                [--cerebro kwargs] [--broker kwargs] [--sizer kwargs]
+                [--strat kwargs] [--plot [kwargs]]
+
+StopTrail Sample
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --data0 DATA0        Data to read in (default:
+                       ../../datas/2005-2006-day-001.txt)
+  --fromdate FROMDATE  Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --todate TODATE      Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --cerebro kwargs     kwargs in key=value format (default: )
+  --broker kwargs      kwargs in key=value format (default: )
+  --sizer kwargs       kwargs in key=value format (default: )
+  --strat kwargs       kwargs in key=value format (default: )
+  --plot [kwargs]      kwargs in key=value format (default: )
+The sample code
+
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class St(bt.Strategy):
+    params = dict(
+        ma=bt.ind.SMA,
+        p1=10,
+        p2=30,
+        stoptype=bt.Order.StopTrail,
+        trailamount=0.0,
+        trailpercent=0.0,
+    )
+
+    def __init__(self):
+        ma1, ma2 = self.p.ma(period=self.p.p1), self.p.ma(period=self.p.p2)
+        self.crup = bt.ind.CrossUp(ma1, ma2)
+        self.order = None
+
+    def next(self):
+        if not self.position:
+            if self.crup:
+                o = self.buy()
+                self.order = None
+                print('*' * 50)
+
+        elif self.order is None:
+            self.order = self.sell(exectype=self.p.stoptype,
+                                   trailamount=self.p.trailamount,
+                                   trailpercent=self.p.trailpercent)
+
+            if self.p.trailamount:
+                tcheck = self.data.close - self.p.trailamount
+            else:
+                tcheck = self.data.close * (1.0 - self.p.trailpercent)
+            print(','.join(
+                map(str, [self.datetime.date(), self.data.close[0],
+                          self.order.created.price, tcheck])
+                )
+            )
+            print('-' * 10)
+        else:
+            if self.p.trailamount:
+                tcheck = self.data.close - self.p.trailamount
+            else:
+                tcheck = self.data.close * (1.0 - self.p.trailpercent)
+            print(','.join(
+                map(str, [self.datetime.date(), self.data.close[0],
+                          self.order.created.price, tcheck])
+                )
+            )
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    kwargs = dict()
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    # Data feed
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **kwargs)
+    cerebro.adddata(data0)
+
+    # Broker
+    cerebro.broker = bt.brokers.BackBroker(**eval('dict(' + args.broker + ')'))
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Strategy
+    cerebro.addstrategy(St, **eval('dict(' + args.strat + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'StopTrail Sample'
+        )
+    )
+
+    parser.add_argument('--data0', default='../../datas/2005-2006-day-001.txt',
+                        required=False, help='Data to read in')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+

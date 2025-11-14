@@ -1,0 +1,58 @@
+{
+  "data_folder": "data/datasets",
+  "kaggle": {
+    "username": "",
+    "key": "",
+    "download_path": "data/datasets/kaggle",
+    "note": "Configure credentials in ~/.kaggle/kaggle.json"
+  },
+  "huggingface": {
+    "token": "",
+    "cache_dir": "data/datasets/huggingface"
+  },
+  "quandl": {
+    "api_key": "",
+    "note": "Get free API key at https://www.quandl.com/"
+  },
+  "alpha_vantage": {
+    "api_key": "",
+    "note": "Get free API key at https://www.alphavantage.co/support/#api-key"
+  },
+  "polygon": {
+    "api_key": "",
+    "note": "Get API key at https://polygon.io/"
+  },
+  "popular_datasets": {
+    "kaggle": [
+      "borismarjanovic/price-volume-data-for-all-us-stocks-etfs",
+      "jacksoncrow/stock-market-dataset",
+      "dgawlik/nyse",
+      "paultimothymooney/stock-market-data",
+      "cnic92/200-financial-indicators-of-us-stocks-20142018",
+      "timoboz/stock-data-dow-jones",
+      "szrlee/stock-time-series-20050101-to-20171231",
+      "qks1lver/amex-nyse-nasdaq-stock-histories",
+      "tsaustin/us-historical-stock-prices-with-earnings-data",
+      "cryptodata/cryptocurrency-historical-prices"
+    ],
+    "huggingface": [
+      "gmongaras/nasdaq_stock_data",
+      "codesignal/stock-price-data",
+      "vivekkevin/financial-dataset"
+    ]
+  },
+  "crypto_sources": {
+    "kaggle": [
+      "sudalairajkumar/cryptocurrencypricehistory",
+      "mczielinski/bitcoin-historical-data",
+      "jessevent/all-crypto-currencies",
+      "tencars/392-crypto-currency-pairs-at-minute-resolution"
+    ]
+  },
+  "settings": {
+    "auto_save": true,
+    "default_format": "parquet",
+    "compression": "snappy",
+    "cache_enabled": true
+  }
+}

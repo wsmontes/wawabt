@@ -1,0 +1,28 @@
+{
+  "us_stocks": {
+    "commission": 0.0,
+    "stocklike": true,
+    "percabs": true,
+    "description": "Zero commission for US stocks (Robinhood style)"
+  },
+  "br_stocks": {
+    "commission": 0.0003,
+    "stocklike": true,
+    "percabs": true,
+    "description": "Brazilian stocks - 0.03% commission"
+  },
+  "futures": {
+    "commission": 2.0,
+    "margin": 5000.0,
+    "mult": 1.0,
+    "stocklike": false,
+    "commtype": "fixed",
+    "description": "Generic futures contract"
+  },
+  "crypto": {
+    "commission": 0.001,
+    "stocklike": true,
+    "percabs": true,
+    "description": "Crypto exchange - 0.1% fee"
+  }
+}

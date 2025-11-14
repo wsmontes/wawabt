@@ -1,0 +1,2103 @@
+Skip to content
+logo
+Backtrader
+Indicators - Usage
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Indicators - Usage
+Indicators - Development
+Indicators - Timeframe Mixing
+Indicators - Reference
+Indicators - ta-lib
+Indicators - ta-lib - Reference
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Indicators in action
+__init__ vs next
+During __init__
+During next
+The __init__ vs next why
+Some notes
+Indicator Plotting
+Controlling plotting
+Using Indicators
+Indicators can be used in two places in the platform:
+
+Inside Strategies
+
+Inside other Indicators
+
+Indicators in action
+Indicators are always instantiated during __init__ in the Strategy
+
+Indicator values (or values thereof derived) are used/checked during next
+
+There is an important axiom to take into account:
+
+Any Indicator (or value thereof derived) declared during __init__ will be precalculated before next is called.
+Let’s go for the differences an operation modes.
+
+__init__ vs next
+Things works as follows:
+
+Any operation involving lines objects during __init__ generates another lines object
+
+Any operation involving lines objects during next yields regular Python types like floats and bools.
+
+During __init__
+Example of an operation during __init__:
+
+
+hilo_diff = self.data.high - self.data.low
+The variable hilo_diff holds a reference to a lines object which is precalculated before calling next and can be accessed using the standard array notation []
+
+It does obviously contains for each bar of the data feed the difference between the high and the low.
+
+This also works when mixing simple lines (like those in the self.data Data Feed) and complex ones like indicators:
+
+
+sma = bt.SimpleMovingAverage(self.data.close)
+close_sma_diff = self.data.close - sma
+Now close_sma_diff contains again a line object.
+
+Using logical operatorss:
+
+
+close_over_sma = self.data.close > sma
+Now the generated lines object will contain an array of booleans.
+
+During next
+Example of an operation (logical operator):
+
+
+close_over_sma = self.data.close > self.sma
+Using the equivalent array (index 0 based notation):
+
+
+close_over_sma = self.data.close[0] > self.sma[0]
+In this case close_over_sma yields a boolen which is the result of comparing two floating point values, the ones returned by the [0] operator applied to self.data.close and self.sma
+
+The __init__ vs next why
+Logic simplification (and with it ease of use) is the key. Calculations and most of the associated logic can be declared during __init__ keeping the actual operational logic to a minimum during next.
+
+There is actually a side benefit: speed (due to the precalculation explained at the beginning)
+
+A complete example which generates a buy signal during __init__:
+
+
+class MyStrategy(bt.Strategy):
+
+    def __init__(self):
+
+        sma1 = btind.SimpleMovingAverage(self.data)
+        ema1 = btind.ExponentialMovingAverage()
+
+        close_over_sma = self.data.close > sma1
+        close_over_ema = self.data.close > ema1
+        sma_ema_diff = sma1 - ema1
+
+        buy_sig = bt.And(close_over_sma, close_over_ema, sma_ema_diff > 0)
+
+    def next(self):
+
+        if buy_sig:
+            self.buy()
+Note
+
+Python’s and operator cannot be overriden, forcing the platform to define its own And. The same applies to other constructs like Or and If
+
+It should be obvious that the “declarative” approach during __init__ keeps the bloating of next (where the actual strategy work happens) to a minimum.
+
+(Don’t forget there is also a speed up factor)
+
+Note
+
+When the logic gets really complicated and involves several operations it is usually much better to encapsulate that inside an Indicator.
+
+Some notes
+In the example above there are two things which have been simplified in backtrader when compared to other platforms:
+
+Declared Indicators are neither getting a parent parameter (like the strategy in which they are being created nor is any kind of “register” method/function being called.
+
+And in spite of it the strategy will kick the calculation of the Indicators and any lines object generated because of operations (like sma - ema)
+
+ExponentialMovingAverage is being instantiated without self.data
+
+This is intentional. If no data is passed, the 1st data of the parent (in this case the Strategy in which is being created) will be automatically passed in the background
+
+Indicator Plotting
+First and foremost:
+
+Declared Indicators get automatically plotted (if cerebro.plot is called)
+
+lines objects from operations DO NOT GET plotted (like close_over_sma = self.data.close > self.sma)
+
+There is an auxiliary LinePlotterIndicator which plots such operations if wished with the following approach:
+
+
+close_over_sma = self.data.close > self.sma
+LinePlotterIndicator(close_over_sma, name='Close_over_SMA')
+The name parameter gives name to the single line held by this indicator.
+
+Controlling plotting
+During the development of an Indicator a plotinfo declaration can be added. It can be a tuple of tuples (2 elements), a dict or an OrderedDict. It looks like:
+
+
+class MyIndicator(bt.Indicator):
+
+    ....
+    plotinfo = dict(subplot=False)
+    ....
+The value can be later accessed (and set) as follows (if needed):
+
+
+myind = MyIndicator(self.data, someparam=value)
+myind.plotinfo.subplot = True
+The value can even be set during instantiation:
+
+
+myind = MyIndicator(self.data, someparams=value, subplot=True)
+The subplot=True will be passed to the (behind the scenes) intantiated member variable plotinfo for the indicator.
+
+The plotinfo offers the following parameters to control plotting behavior:
+
+plot (default: True)
+
+Whether the indicator is to be plotted or not
+
+subplot (default: True)
+
+Whether to plot the indicator in a different window. For indicators like moving averages the default is changed to False
+
+plotname (default: '')
+
+Sets the plotname to show on the plot. The empty value means the canonical name of the indicator (class.__name__) will be used. This has some limitations because Python identifiers cannot use for example arithmetic operators.
+
+An indicator like DI+ will be declared as follows:
+
+
+class DIPlus(bt.Indicator):
+    plotinfo=dict(plotname='DI+')
+Making the plot “nicer”
+
+plotabove (default: False)
+
+Indicators are usually plotted (those with subplot=True) below the data they have operated on. Setting this to True will make the indicator be plotted above the data.
+
+plotlinelabels (default: False)
+
+Meant for “indicators” on “indicators”. If one calculates the SimpleMovingAverage of the RSI the plot will usually show the name “SimpleMovingAverage” for the corresponding plotted line. This is the name of the “Indicator” and not the actual line being plotted.
+
+This default behavior makes sense because the user wants to usually see that a SimpleMovingAverage has been created using the RSI.
+
+if the value is set to True the actual name of the line inside the SimpleMovingAverage will be used.
+
+plotymargin (default: 0.0)
+
+Amount of margin to leave at the top and bottom of the indicator (0.15 -> 15%). Sometimes the matplotlib plots go too far to the top/bottom of the axis and a margin may be wished
+
+plotyticks (default: [])
+
+Used to control the drawn y scale ticks
+
+If an empty list is passed the “y ticks” will be automatically calculated. For something like a Stochastic it may make sense to set this to well-known idustry standards like: [20.0, 50.0, 80.0]
+
+Some indicators offer parameters like upperband and lowerband that are actually used to manipulate the y ticks
+
+plothlines (default: [])
+
+Used to control the drawing of horizontal lines along the indicator axis.
+
+If an empty list is passed no horizontal lines will drawn.
+
+For something like a Stochastic it may make sense to draw lines for well-known idustry standards like: [20.0, 80.0]
+
+Some indicators offer parameters like upperband and lowerband that are actually used to manipulate the horizontal lines
+
+plotyhlines (default: [])
+
+Used to simultaneously control plotyticks and plothlines using a single parameter.
+
+plotforce (default: False)
+
+If for some reason you believe an indicator should be plotting and it is not plotting … set this to True as a last resort.
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Indicators - Development
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Indicators - Usage
+Indicators - Development
+Indicators - Timeframe Mixing
+Indicators - Reference
+Indicators - ta-lib
+Indicators - ta-lib - Reference
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Important note: Idempotence
+A dummy (but functional) indicator
+Manual/Automatic Minimum Period
+A full custom indicator
+Indicator Development
+If anything (besides one or more winning Strategies) must ever be developed, this something is a custom Indicator.
+
+Such development within the platform is, according to the author, easy.
+
+The following is needed:
+
+A class derived from Indicator (either directly or from an already existing subclass)
+
+Define the lines it will hold
+
+An indicator must at least have 1 line. If deriving from an existing one, the line(s) may have already be defined
+
+Optionally define parameters which can alter the behavior
+
+Optionally provided/customize some of the elements which enable sensible plotting of the indicators
+
+Provide a fully defined operation in __init__ with a binding (assignment) to the line(s) of the indicator or else provide next and (optionally) once methods
+
+If an indicator can be fully defined with logic/arithmetic operations during initialization and the result is assigned to the line: done
+
+Be it not the case, at least a next has to be provided where the indicator must assign a value to the line(s) at index 0
+
+Optimization of the calculation for the runonce mode (batch operation) can be achieved by providing a once method.
+
+Important note: Idempotence
+Indicators produce an output for each bar they receive. No assumption has to be made about how many times the same bar will be sent. Operations have to be idempotent.
+
+The rationale behind this:
+
+The same bar (index-wise) can be sent many times with changing values (namely the changing value is the closing price)
+This enables, for example, “replaying” a daily session but using intraday data which could be made of 5 minutes bars.
+
+It could also allow the platform to get values from a live feed.
+
+A dummy (but functional) indicator
+So can it be:
+
+
+class DummyInd(bt.Indicator):
+    lines = ('dummyline',)
+
+    params = (('value', 5),)
+
+    def __init__(self):
+        self.lines.dummyline = bt.Max(0.0, self.params.value)
+Done! The indicator will output always the same value: either 0.0 or self.params.value if it happens to be greater than 0.0.
+
+The same indicator but using the next method:
+
+
+class DummyInd(bt.Indicator):
+    lines = ('dummyline',)
+
+    params = (('value', 5),)
+
+    def next(self):
+        self.lines.dummyline[0] = max(0.0, self.params.value)
+Done! Same behavior.
+
+Note
+
+Notice how in the __init__ version bt.Max is used to assign to the Line object self.lines.dummyline.
+
+bt.Max returns an lines object that is automatically iterated for each bar passed to the indicator.
+
+Had max been used instead, the assigment would have been pointless, because instead of a line, the indicator would have a member variable with a fixed value.
+
+During next the work is done directly with floating point values and the standard max built-in can be used
+
+Let’s recall that self.lines.dummyline is the long notation and that it can be shortened to:
+
+self.l.dummyline
+and even to:
+
+self.dummyline
+The latter being only possible if the code has not obscured this with a member attribute.
+
+The 3rd and last version provides an additional once method to optimize the calculation:
+
+
+class DummyInd(bt.Indicator):
+    lines = ('dummyline',)
+
+    params = (('value', 5),)
+
+    def next(self):
+        self.lines.dummyline[0] = max(0.0, self.params.value)
+
+    def once(self, start, end):
+       dummy_array = self.lines.dummyline.array
+
+       for i in xrange(start, end):
+           dummy_array[i] = max(0.0, self.params.value)
+A lot more effective but developing the once method has forced to scratch beyond the surface. Actually the guts have been looked into.
+
+The __init__ version is in any case the best:
+
+Everything is confined to the initialization
+
+next and once (both optimized, because bt.Max already has them) are provided automatically with no need to play with indices and/or formulas
+
+Be it needed for development, the indicator can also override the methods associated to next and once:
+
+prenext and nexstart
+
+preonce and oncestart
+
+Manual/Automatic Minimum Period
+If possible the platform will calculate it, but manual action may be needed.
+
+Here is a potential implementation of a Simple Moving Average:
+
+
+class SimpleMovingAverage1(Indicator):
+    lines = ('sma',)
+    params = (('period', 20),)
+
+    def next(self):
+        datasum = math.fsum(self.data.get(size=self.p.period))
+        self.lines.sma[0] = datasum / self.p.period
+Although it seems sound, the platform doesn’t know what the minimum period is, even if the parameter is named “period” (the name could be misleading and some indicators receive several “period”s which have different usages)
+
+In this case next would be called already for the 1st bar and everthing would explode because get cannot return the needed self.p.period.
+
+Before solving the situation something has to be taken into account:
+
+The data feeds passed to the indicators may already carry a minimum period
+The sample SimpleMovingAverage may be done on for example:
+
+A regular data feed
+
+This has a default mininum period of 1 (just wait for the 1st bar that enters the system)
+
+Another Moving Average … and this in turn already has a period
+
+If this is 20 and again our sample moving average has also 20, we end up with a minimum period of 40 bars
+
+Actually the internal calculation says 39 … because as soon as the first moving average has produced a bar this counts for the next moving average, which creates an overlapping bar, thus 39 are needed.
+
+Other indicators/objects which also carry periods
+
+Alleviating the situation is done as follows:
+
+
+class SimpleMovingAverage1(Indicator):
+    lines = ('sma',)
+    params = (('period', 20),)
+
+    def __init__(self):
+        self.addminperiod(self.params.period)
+
+    def next(self):
+        datasum = math.fsum(self.data.get(size=self.p.period))
+        self.lines.sma[0] = datasum / self.p.period
+The addminperiod method is telling the system to take into account the extra period bars needed by this indicator to whatever minimum period there may be in existence.
+
+Sometimes this is absolutely not needed, if all calculations are done with objects which already communicate its period needs to the system.
+
+A quick MACD implementation with Histogram:
+
+
+from backtrader.indicators import EMA
+
+class MACD(Indicator):
+    lines = ('macd', 'signal', 'histo',)
+    params = (('period_me1', 12), ('period_me2', 26), ('period_signal', 9),)
+
+    def __init__(self):
+        me1 = EMA(self.data, period=self.p.period_me1)
+        me2 = EMA(self.data, period=self.p.period_me2)
+        self.l.macd = me1 - me2
+        self.l.signal = EMA(self.l.macd, period=self.p.period_signal)
+        self.l.histo = self.l.macd - self.l.signal
+Done! No need to think about mininum periods.
+
+EMA stands for Exponential Moving Average (a platform built-in alias)
+
+And this one (already in the platform) already states what it needs
+
+The named lines of the indicator “macd” and “signal” are being assigned objects which already carry declared (behind the scenes) periods
+
+macd takes the period from the operation “me1 - me2” which has in turn take the maximum from the periods of me1 and me2 (which are both exponential moving averages with different periods)
+
+signal takes directly the period of the Exponential Moving Average over macd. This EMA also takes into account the already existing macd period and the needed amount of samples (period_signal) to calculate itself
+
+histo takes the maximum of the two operands “signal - macd”. Once both are ready can histo also produce a value
+
+A full custom indicator
+Let’s develop a simple custom indicator which “indicates” if a moving average (which can be modified with a parameter) is above the given data:
+
+
+import backtrader as bt
+import backtrader.indicators as btind
+
+class OverUnderMovAv(bt.Indicator):
+    lines = ('overunder',)
+    params = dict(period=20, movav=btind.MovAv.Simple)
+
+    def __init__(self):
+        movav = self.p.movav(self.data, period=self.p.period)
+        self.l.overunder = bt.Cmp(movav, self.data)
+Done! The indicator will have a value of “1” if the average is above the data and “-1” if below.
+
+Be the data a regular data feed the 1s and -1s would be produced comparing with the close price.
+
+Although more can be seen in the Plotting section and to have a behaved and nice citizen in the plotting world, a couple of things can be added:
+
+
+import backtrader as bt
+import backtrader.indicators as btind
+
+class OverUnderMovAv(bt.Indicator):
+    lines = ('overunder',)
+    params = dict(period=20, movav=bt.ind.MovAv.Simple)
+
+    plotinfo = dict(
+        # Add extra margins above and below the 1s and -1s
+        plotymargin=0.15,
+
+        # Plot a reference horizontal line at 1.0 and -1.0
+        plothlines=[1.0, -1.0],
+
+        # Simplify the y scale to 1.0 and -1.0
+        plotyticks=[1.0, -1.0])
+
+    # Plot the line "overunder" (the only one) with dash style
+    # ls stands for linestyle and is directly passed to matplotlib
+    plotlines = dict(overunder=dict(ls='--'))
+
+    def _plotlabel(self):
+        # This method returns a list of labels that will be displayed
+        # behind the name of the indicator on the plot
+
+        # The period must always be there
+        plabels = [self.p.period]
+
+        # Put only the moving average if it's not the default one
+        plabels += [self.p.movav] * self.p.notdefault('movav')
+
+        return plabels
+
+    def __init__(self):
+        movav = self.p.movav(self.data, period=self.p.period)
+        self.l.overunder = bt.Cmp(movav, self.data)
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Indicators - Timeframe Mixing
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Indicators - Usage
+Indicators - Development
+Indicators - Timeframe Mixing
+Indicators - Reference
+Indicators - ta-lib
+Indicators - ta-lib - Reference
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Full coupling syntax
+Conclusion
+Script Code and Usage
+Mixing Timeframes in Indicators
+Release 1.3.0.92 brings up the possibility to have data (from either data feeds and/or indicators) from different timeframes mixed.
+
+Background: Indicators are smart dumb objects.
+
+They are smart because they can make complex calculations.
+
+They are dumb because they operate with no knowledge of what sources are providing the data for the calculations
+
+As such:
+
+If the data sources providing the values have different timeframes, different lengths inside the Cerebro engine, the indicator will break.
+Example of a calculation, in which data0 has a timeframe of days and data1 has a timeframe of months:
+
+
+pivotpoint = btind.PivotPoint(self.data1)
+sellsignal = self.data0.close < pivotpoint.s1
+Here a sell signal is sought when the close is below the s1 line (1st support)
+
+Note
+
+PivotPoint works in a larger timeframe by definition
+
+This will in the past with the following error:
+
+
+return self.array[self.idx + ago]
+IndexError: array index out of range
+And for a good reason: self.data.close provides values from the very 1st instant, but PivotPoint (and hence the s1 line) will only deliver values once a full month has gone by, which is roughly equivalent to 22 values of self.data0.close. During this 22 closes there isn’t yet a value for s1 and the attempt to fetch it from the underlying array fails.
+
+Lines objects support the (ago) operator (__call__ special method in Python) for deliver a delayed version of itself:
+
+
+close1 = self.data.close(-1)
+In this example the object close1 (when accessed via [0]) always contains the previous value (-1) delivered by close. The syntax has been reused to accomodate adapting timeframes. Let’s rewrite the above pivotpoint snippet:
+
+
+pivotpoint = btind.PivotPoint(self.data1)
+sellsignal = self.data0.close < pivotpoint.s1()
+See how the () is executed with no arguments (in the background a None is being supplied). The following is happening:
+
+pivotpoint.s1() is returning an internal LinesCoupler object which follows the rhythm of the larger scope. This coupler fills itself with the latest delivered value from the real s1 (starting with a default value of NaN)
+But something extra is needed to make the magic work. Cerebro has to be created with:
+
+
+cerebro = bt.Cerebro(runonce=False)
+or executed with:
+
+
+cerebro.run(runonce=False)
+In this mode the indicators and late-evaluated automatic lines objects are executed step by step rather than in tight loops. This makes the entire operation slower, but it makes it possible
+
+The sample script at the bottom which was breaking above, now runs:
+
+
+$ ./mixing-timeframes.py
+With output:
+
+
+0021,0021,0001,2005-01-31,2984.75,2935.96,0.00
+0022,0022,0001,2005-02-01,3008.85,2935.96,0.00
+...
+0073,0073,0003,2005-04-15,3013.89,3010.76,0.00
+0074,0074,0003,2005-04-18,2947.79,3010.76,1.00
+...
+At line 74 the 1st instance of close < s1 takes place.
+
+The script also provides insight into the additional possiblity: couple all lines of an indicator. Before we had:
+
+
+self.sellsignal = self.data0.close < pp.s1()
+Being the alternative:
+
+
+pp1 = pp()
+self.sellsignal = self.data0.close < pp1.s1
+Now the entire PivotPoint indicator has been coupled and any of its lines can be accessed (namely p, r1, r2, s1, s2). The script has only interest in s1 and the access is direct.:
+
+
+$ ./mixing-timeframes.py --multi
+The output:
+
+
+0021,0021,0001,2005-01-31,2984.75,2935.96,0.00
+0022,0022,0001,2005-02-01,3008.85,2935.96,0.00
+...
+0073,0073,0003,2005-04-15,3013.89,3010.76,0.00
+0074,0074,0003,2005-04-18,2947.79,3010.76,1.00
+...
+No surprises here. The same as before. The “coupled” object can even be plotted:
+
+
+$ ./mixing-timeframes.py --multi --plot
+image
+
+Full coupling syntax
+For lines objects with multiple lines (for example Indicators like PivotPoint):
+
+obj(clockref=None, line=-1)
+
+clockref If clockref is None, the surrounding object (in the examples a Strategy) will be the reference to adapt larger timeframes (for example: Months) to smaller/faster timeframes (for example: Days)
+Another reference can be used if desired
+
+line
+
+
+* If the default `-1` is given, all *lines* are coupled.
+
+* If another integer (for example, `0` or `1`) a single line will be
+  coupled and fetched by index (from `obj.lines[x]`)
+
+* If a string is passed, the line will be fetched by name.
+
+  In the sample, the following could have been done:
+
+  ```python
+  coupled_s1 = pp(line='s1')
+  ```
+For lines objects with a single line (for example line s1 from the indicator PivotPoint):
+
+obj(clockref=None) (see above for clockref)
+Conclusion
+Integrated in the regular () syntax, data feeds from different timeframes can be mixed in indicators, always taking into account that cerebro needs to be instantiated or created with runonce=False.
+
+Script Code and Usage
+Available as sample in the sources of backtrader. Usage:
+
+
+$ ./mixing-timeframes.py --help
+usage: mixing-timeframes.py [-h] [--data DATA] [--multi] [--plot]
+
+Sample for pivot point and cross plotting
+
+optional arguments:
+  -h, --help   show this help message and exit
+  --data DATA  Data to be read in (default: ../../datas/2005-2006-day-001.txt)
+  --multi      Couple all lines of the indicator (default: False)
+  --plot       Plot the result (default: False)
+The code:
+
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+
+import backtrader as bt
+import backtrader.feeds as btfeeds
+import backtrader.indicators as btind
+import backtrader.utils.flushfile
+
+
+class St(bt.Strategy):
+    params = dict(multi=True)
+
+    def __init__(self):
+        self.pp = pp = btind.PivotPoint(self.data1)
+        pp.plotinfo.plot = False  # deactivate plotting
+
+        if self.p.multi:
+            pp1 = pp()  # couple the entire indicators
+            self.sellsignal = self.data0.close < pp1.s1
+        else:
+            self.sellsignal = self.data0.close < pp.s1()
+
+    def next(self):
+        txt = ','.join(
+            ['%04d' % len(self),
+             '%04d' % len(self.data0),
+             '%04d' % len(self.data1),
+             self.data.datetime.date(0).isoformat(),
+             '%.2f' % self.data0.close[0],
+             '%.2f' % self.pp.s1[0],
+             '%.2f' % self.sellsignal[0]])
+
+        print(txt)
+
+
+def runstrat():
+    args = parse_args()
+
+    cerebro = bt.Cerebro()
+    data = btfeeds.BacktraderCSVData(dataname=args.data)
+    cerebro.adddata(data)
+    cerebro.resampledata(data, timeframe=bt.TimeFrame.Months)
+
+    cerebro.addstrategy(St, multi=args.multi)
+
+    cerebro.run(stdstats=False, runonce=False)
+    if args.plot:
+        cerebro.plot(style='bar')
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Sample for pivot point and cross plotting')
+
+    parser.add_argument('--data', required=False,
+                        default='../../datas/2005-2006-day-001.txt',
+                        help='Data to be read in')
+
+    parser.add_argument('--multi', required=False, action='store_true',
+                        help='Couple all lines of the indicator')
+
+    parser.add_argument('--plot', required=False, action='store_true',
+                        help=('Plot the result'))
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Indicators - Timeframe Mixing
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Indicators - Usage
+Indicators - Development
+Indicators - Timeframe Mixing
+Indicators - Reference
+Indicators - ta-lib
+Indicators - ta-lib - Reference
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Full coupling syntax
+Conclusion
+Script Code and Usage
+Mixing Timeframes in Indicators
+Release 1.3.0.92 brings up the possibility to have data (from either data feeds and/or indicators) from different timeframes mixed.
+
+Background: Indicators are smart dumb objects.
+
+They are smart because they can make complex calculations.
+
+They are dumb because they operate with no knowledge of what sources are providing the data for the calculations
+
+As such:
+
+If the data sources providing the values have different timeframes, different lengths inside the Cerebro engine, the indicator will break.
+Example of a calculation, in which data0 has a timeframe of days and data1 has a timeframe of months:
+
+
+pivotpoint = btind.PivotPoint(self.data1)
+sellsignal = self.data0.close < pivotpoint.s1
+Here a sell signal is sought when the close is below the s1 line (1st support)
+
+Note
+
+PivotPoint works in a larger timeframe by definition
+
+This will in the past with the following error:
+
+
+return self.array[self.idx + ago]
+IndexError: array index out of range
+And for a good reason: self.data.close provides values from the very 1st instant, but PivotPoint (and hence the s1 line) will only deliver values once a full month has gone by, which is roughly equivalent to 22 values of self.data0.close. During this 22 closes there isn’t yet a value for s1 and the attempt to fetch it from the underlying array fails.
+
+Lines objects support the (ago) operator (__call__ special method in Python) for deliver a delayed version of itself:
+
+
+close1 = self.data.close(-1)
+In this example the object close1 (when accessed via [0]) always contains the previous value (-1) delivered by close. The syntax has been reused to accomodate adapting timeframes. Let’s rewrite the above pivotpoint snippet:
+
+
+pivotpoint = btind.PivotPoint(self.data1)
+sellsignal = self.data0.close < pivotpoint.s1()
+See how the () is executed with no arguments (in the background a None is being supplied). The following is happening:
+
+pivotpoint.s1() is returning an internal LinesCoupler object which follows the rhythm of the larger scope. This coupler fills itself with the latest delivered value from the real s1 (starting with a default value of NaN)
+But something extra is needed to make the magic work. Cerebro has to be created with:
+
+
+cerebro = bt.Cerebro(runonce=False)
+or executed with:
+
+
+cerebro.run(runonce=False)
+In this mode the indicators and late-evaluated automatic lines objects are executed step by step rather than in tight loops. This makes the entire operation slower, but it makes it possible
+
+The sample script at the bottom which was breaking above, now runs:
+
+
+$ ./mixing-timeframes.py
+With output:
+
+
+0021,0021,0001,2005-01-31,2984.75,2935.96,0.00
+0022,0022,0001,2005-02-01,3008.85,2935.96,0.00
+...
+0073,0073,0003,2005-04-15,3013.89,3010.76,0.00
+0074,0074,0003,2005-04-18,2947.79,3010.76,1.00
+...
+At line 74 the 1st instance of close < s1 takes place.
+
+The script also provides insight into the additional possiblity: couple all lines of an indicator. Before we had:
+
+
+self.sellsignal = self.data0.close < pp.s1()
+Being the alternative:
+
+
+pp1 = pp()
+self.sellsignal = self.data0.close < pp1.s1
+Now the entire PivotPoint indicator has been coupled and any of its lines can be accessed (namely p, r1, r2, s1, s2). The script has only interest in s1 and the access is direct.:
+
+
+$ ./mixing-timeframes.py --multi
+The output:
+
+
+0021,0021,0001,2005-01-31,2984.75,2935.96,0.00
+0022,0022,0001,2005-02-01,3008.85,2935.96,0.00
+...
+0073,0073,0003,2005-04-15,3013.89,3010.76,0.00
+0074,0074,0003,2005-04-18,2947.79,3010.76,1.00
+...
+No surprises here. The same as before. The “coupled” object can even be plotted:
+
+
+$ ./mixing-timeframes.py --multi --plot
+image
+
+Full coupling syntax
+For lines objects with multiple lines (for example Indicators like PivotPoint):
+
+obj(clockref=None, line=-1)
+
+clockref If clockref is None, the surrounding object (in the examples a Strategy) will be the reference to adapt larger timeframes (for example: Months) to smaller/faster timeframes (for example: Days)
+Another reference can be used if desired
+
+line
+
+
+* If the default `-1` is given, all *lines* are coupled.
+
+* If another integer (for example, `0` or `1`) a single line will be
+  coupled and fetched by index (from `obj.lines[x]`)
+
+* If a string is passed, the line will be fetched by name.
+
+  In the sample, the following could have been done:
+
+  ```python
+  coupled_s1 = pp(line='s1')
+  ```
+For lines objects with a single line (for example line s1 from the indicator PivotPoint):
+
+obj(clockref=None) (see above for clockref)
+Conclusion
+Integrated in the regular () syntax, data feeds from different timeframes can be mixed in indicators, always taking into account that cerebro needs to be instantiated or created with runonce=False.
+
+Script Code and Usage
+Available as sample in the sources of backtrader. Usage:
+
+
+$ ./mixing-timeframes.py --help
+usage: mixing-timeframes.py [-h] [--data DATA] [--multi] [--plot]
+
+Sample for pivot point and cross plotting
+
+optional arguments:
+  -h, --help   show this help message and exit
+  --data DATA  Data to be read in (default: ../../datas/2005-2006-day-001.txt)
+  --multi      Couple all lines of the indicator (default: False)
+  --plot       Plot the result (default: False)
+The code:
+
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+
+import backtrader as bt
+import backtrader.feeds as btfeeds
+import backtrader.indicators as btind
+import backtrader.utils.flushfile
+
+
+class St(bt.Strategy):
+    params = dict(multi=True)
+
+    def __init__(self):
+        self.pp = pp = btind.PivotPoint(self.data1)
+        pp.plotinfo.plot = False  # deactivate plotting
+
+        if self.p.multi:
+            pp1 = pp()  # couple the entire indicators
+            self.sellsignal = self.data0.close < pp1.s1
+        else:
+            self.sellsignal = self.data0.close < pp.s1()
+
+    def next(self):
+        txt = ','.join(
+            ['%04d' % len(self),
+             '%04d' % len(self.data0),
+             '%04d' % len(self.data1),
+             self.data.datetime.date(0).isoformat(),
+             '%.2f' % self.data0.close[0],
+             '%.2f' % self.pp.s1[0],
+             '%.2f' % self.sellsignal[0]])
+
+        print(txt)
+
+
+def runstrat():
+    args = parse_args()
+
+    cerebro = bt.Cerebro()
+    data = btfeeds.BacktraderCSVData(dataname=args.data)
+    cerebro.adddata(data)
+    cerebro.resampledata(data, timeframe=bt.TimeFrame.Months)
+
+    cerebro.addstrategy(St, multi=args.multi)
+
+    cerebro.run(stdstats=False, runonce=False)
+    if args.plot:
+        cerebro.plot(style='bar')
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Sample for pivot point and cross plotting')
+
+    parser.add_argument('--data', required=False,
+                        default='../../datas/2005-2006-day-001.txt',
+                        help='Data to be read in')
+
+    parser.add_argument('--multi', required=False, action='store_true',
+                        help='Couple all lines of the indicator')
+
+    parser.add_argument('--plot', required=False, action='store_true',
+                        help=('Plot the result'))
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Indicators - ta-lib
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Indicators - Usage
+Indicators - Development
+Indicators - Timeframe Mixing
+Indicators - Reference
+Indicators - ta-lib
+Indicators - ta-lib - Reference
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Requirements
+Using ta-lib
+Moving Averages and MA_Type
+Plotting ta-lib indicators
+Examples and comparisons
+KAMA (Kaufman Moving Average)
+SMA
+EMA
+Stochastic
+RSI
+MACD
+Bollinger Bands
+AROON
+Ultimate Oscillator
+Trix
+ADXR
+DEMA
+TEMA
+PPO
+WilliamsR
+ROC
+Sample Usage
+Sample Code
+TA-Lib
+Even if backtrader offers an already high number of built-in indicators and developing an indicator is mostly a matter of defining the inputs, outputs and writing the formula in a natural manner, some people want to use TA-LIB. Some of the reasons:
+
+Indicator X is in the library and not in backtrader (the author would gladly accept a request)
+
+TA-LIB behavior is well known and people trust good old things
+
+In order to satisfy each and every taste, TA-LIB integration is offered.
+
+Requirements
+Python wrapper for TA-Lib
+
+Any dependencies needed by it (for example numpy)
+
+The installation details are on the GitHub repository
+
+Using ta-lib
+As easy as using any of the indicators already built-in in backtrader. Example of a Simple Moving Average. First the backtrader one:
+
+
+import backtrader as bt
+
+class MyStrategy(bt.Strategy):
+    params = (('period', 20),)
+
+    def __init__(self):
+        self.sma = bt.indicators.SMA(self.data, period=self.p.period)
+        ...
+
+...
+Now the ta-lib example:
+
+
+import backtrader as bt
+
+class MyStrategy(bt.Strategy):
+    params = (('period', 20),)
+
+    def __init__(self):
+        self.sma = bt.talib.SMA(self.data, timeperiod=self.p.period)
+        ...
+
+...
+Et voilá! Of course the params for the ta-lib indicators are defined by the library itself and not by backtrader. In this case the SMA in ta-lib takes a parameter named timeperiod to defined the size of the operating window.
+
+For indicators that require more than one input, for example the Stochastic:
+
+
+import backtrader as bt
+
+class MyStrategy(bt.Strategy):
+    params = (('period', 20),)
+
+    def __init__(self):
+        self.stoc = bt.talib.STOCH(self.data.high, self.data.low, self.data.close,
+                                   fastk_period=14, slowk_period=3, slowd_period=3)
+
+        ...
+
+...
+Notice how high, low and close have been individually passed. One could always pass open instead of low (or any other data series) and experiment.
+
+The ta-lib indicator documentation is automatically parsed and added to the backtrader docs. You may also check the ta-lib source code/docs. Or adittionally do:
+
+
+print(bt.talib.SMA.__doc__)
+Which in this case outputs:
+
+
+SMA([input_arrays], [timeperiod=30])
+
+Simple Moving Average (Overlap Studies)
+
+Inputs:
+    price: (any ndarray)
+Parameters:
+    timeperiod: 30
+Outputs:
+    real
+Which offers some information:
+
+Which Input is to be expected (DISREGARD the ``ndarray`` comment because backtrader manages the conversions in the background)
+
+Which parameters and which default values
+
+Which output lines the indicator actually offers
+
+Moving Averages and MA_Type
+To select a specific moving average for indicators like bt.talib.STOCH, the standard ta-lib MA_Type is accesible with backtrader.talib.MA_Type. For example:
+
+
+import backtrader as bt
+print('SMA:', bt.talib.MA_Type.SMA)
+print('T3:', bt.talib.MA_Type.T3)
+Plotting ta-lib indicators
+Just as with regular usage, there is nothing special to do to plot the ta-lib indicators.
+
+Note
+
+Indicators which output a CANDLE (all those looking for a candlestick pattern) deliver a binary output: either 0 or 100. In order to avoid adding a subplot to the chart, there is an automated plotting translation to plot them over the data at the point in time in which the pattern was recognized.
+
+Examples and comparisons
+The following are plots comparing the outputs of some ta-lib indicators against the equivalent built-in indicators in backtrader. To consider:
+
+The ta-lib indicators get a TA_ prefix on the plot. This is specifically done by the sample to help the user spot which is which
+
+Moving Averages (if both deliver the same result) will be plotted ON top of the other existing Moving Average. The two indicators cannot be seen separately and the test is a pass if that’s the case.
+
+All samples include a CDLDOJI indicator as a reference
+
+KAMA (Kaufman Moving Average)
+This is the 1st example because it is the only (from all indicators which the sample directly compare) that has a difference:
+
+The initial values of the the samples are not the same
+
+At some point in time, the values converge and both KAMA implementations have the same behavior.
+
+After having analyzed the ta-lib source code:
+
+The implementation in ta-lib makes a non-industry standard choice for the 1st values of the KAMA.
+
+The choice can be seen in the source code quoting from the source code): The yesterday price is used here as the previous KAMA.
+
+backtrader does the usual choice which is the same as for example the one from Stockcharts:
+
+KAMA at StockCharts
+
+Since we need an initial value to start the calculation, the first KAMA is just a simple moving average
+
+Hence the difference. Furthermore:
+
+The ta-lib KAMA implementation doesn’t allow specifying the fast and slow periods for the adjustment of the scalable constant defined by Kaufman.
+Sample execution:
+
+
+$ ./talibtest.py --plot --ind kama
+Output
+
+image
+
+SMA
+
+$ ./talibtest.py --plot --ind sma
+Output
+
+image
+
+EMA
+
+$ ./talibtest.py --plot --ind ema
+Output
+
+image
+
+Stochastic
+
+$ ./talibtest.py --plot --ind stoc
+Output
+
+image
+
+RSI
+
+$ ./talibtest.py --plot --ind rsi
+Output
+
+image
+
+MACD
+
+$ ./talibtest.py --plot --ind macd
+Output
+
+image
+
+Bollinger Bands
+
+$ ./talibtest.py --plot --ind bollinger
+Output
+
+image
+
+AROON
+Note that ta-lib chooses to put the down line first and the colours are inverted when compared with the backtrader built-in indicator.
+
+
+$ ./talibtest.py --plot --ind aroon
+Output
+
+image
+
+Ultimate Oscillator
+
+$ ./talibtest.py --plot --ind ultimate
+Output
+
+image
+
+Trix
+
+$ ./talibtest.py --plot --ind trix
+Output
+
+image
+
+ADXR
+Here backtrader offers both the ADX and ADXR lines.
+
+
+$ ./talibtest.py --plot --ind adxr
+Output
+
+image
+
+DEMA
+
+$ ./talibtest.py --plot --ind dema
+Output
+
+image
+
+TEMA
+
+$ ./talibtest.py --plot --ind tema
+Output
+
+image
+
+PPO
+Here backtrader offers not only the ppo line, but a more traditional macd approach.
+
+
+$ ./talibtest.py --plot --ind ppo
+Output
+
+image
+
+WilliamsR
+
+$ ./talibtest.py --plot --ind williamsr
+Output
+
+image
+
+ROC
+All indicators show have exactly the same shape, but how to track momentum or rate of change has several definitions
+
+
+$ ./talibtest.py --plot --ind roc
+Output
+
+image
+
+Sample Usage
+
+$ ./talibtest.py --help
+usage: talibtest.py [-h] [--data0 DATA0] [--fromdate FROMDATE]
+                    [--todate TODATE]
+                    [--ind {sma,ema,stoc,rsi,macd,bollinger,aroon,ultimate,trix,kama,adxr,dema,tema,ppo,williamsr,roc}]
+                    [--no-doji] [--use-next] [--plot [kwargs]]
+
+Sample for ta-lib
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data0 DATA0         Data to be read in (default:
+                        ../../datas/yhoo-1996-2015.txt)
+  --fromdate FROMDATE   Starting date in YYYY-MM-DD format (default:
+                        2005-01-01)
+  --todate TODATE       Ending date in YYYY-MM-DD format (default: 2006-12-31)
+  --ind {sma,ema,stoc,rsi,macd,bollinger,aroon,ultimate,trix,kama,adxr,dema,tema,ppo,williamsr,roc}
+                        Which indicator pair to show together (default: sma)
+  --no-doji             Remove Doji CandleStick pattern checker (default:
+                        False)
+  --use-next            Use next (step by step) instead of once (batch)
+                        (default: False)
+  --plot [kwargs], -p [kwargs]
+                        Plot the read data applying any kwargs passed For
+                        example (escape the quotes if needed): --plot
+                        style="candle" (to plot candles) (default: None)
+Sample Code
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class TALibStrategy(bt.Strategy):
+    params = (('ind', 'sma'), ('doji', True),)
+
+    INDS = ['sma', 'ema', 'stoc', 'rsi', 'macd', 'bollinger', 'aroon',
+            'ultimate', 'trix', 'kama', 'adxr', 'dema', 'ppo', 'tema',
+            'roc', 'williamsr']
+
+    def __init__(self):
+        if self.p.doji:
+            bt.talib.CDLDOJI(self.data.open, self.data.high,
+                             self.data.low, self.data.close)
+
+        if self.p.ind == 'sma':
+            bt.talib.SMA(self.data.close, timeperiod=25, plotname='TA_SMA')
+            bt.indicators.SMA(self.data, period=25)
+        elif self.p.ind == 'ema':
+            bt.talib.EMA(timeperiod=25, plotname='TA_SMA')
+            bt.indicators.EMA(period=25)
+        elif self.p.ind == 'stoc':
+            bt.talib.STOCH(self.data.high, self.data.low, self.data.close,
+                           fastk_period=14, slowk_period=3, slowd_period=3,
+                           plotname='TA_STOCH')
+
+            bt.indicators.Stochastic(self.data)
+
+        elif self.p.ind == 'macd':
+            bt.talib.MACD(self.data, plotname='TA_MACD')
+            bt.indicators.MACD(self.data)
+            bt.indicators.MACDHisto(self.data)
+        elif self.p.ind == 'bollinger':
+            bt.talib.BBANDS(self.data, timeperiod=25,
+                            plotname='TA_BBANDS')
+            bt.indicators.BollingerBands(self.data, period=25)
+
+        elif self.p.ind == 'rsi':
+            bt.talib.RSI(self.data, plotname='TA_RSI')
+            bt.indicators.RSI(self.data)
+
+        elif self.p.ind == 'aroon':
+            bt.talib.AROON(self.data.high, self.data.low, plotname='TA_AROON')
+            bt.indicators.AroonIndicator(self.data)
+
+        elif self.p.ind == 'ultimate':
+            bt.talib.ULTOSC(self.data.high, self.data.low, self.data.close,
+                            plotname='TA_ULTOSC')
+            bt.indicators.UltimateOscillator(self.data)
+
+        elif self.p.ind == 'trix':
+            bt.talib.TRIX(self.data, timeperiod=25,  plotname='TA_TRIX')
+            bt.indicators.Trix(self.data, period=25)
+
+        elif self.p.ind == 'adxr':
+            bt.talib.ADXR(self.data.high, self.data.low, self.data.close,
+                          plotname='TA_ADXR')
+            bt.indicators.ADXR(self.data)
+
+        elif self.p.ind == 'kama':
+            bt.talib.KAMA(self.data, timeperiod=25, plotname='TA_KAMA')
+            bt.indicators.KAMA(self.data, period=25)
+
+        elif self.p.ind == 'dema':
+            bt.talib.DEMA(self.data, timeperiod=25, plotname='TA_DEMA')
+            bt.indicators.DEMA(self.data, period=25)
+
+        elif self.p.ind == 'ppo':
+            bt.talib.PPO(self.data, plotname='TA_PPO')
+            bt.indicators.PPO(self.data, _movav=bt.indicators.SMA)
+
+        elif self.p.ind == 'tema':
+            bt.talib.TEMA(self.data, timeperiod=25, plotname='TA_TEMA')
+            bt.indicators.TEMA(self.data, period=25)
+
+        elif self.p.ind == 'roc':
+            bt.talib.ROC(self.data, timeperiod=12, plotname='TA_ROC')
+            bt.talib.ROCP(self.data, timeperiod=12, plotname='TA_ROCP')
+            bt.talib.ROCR(self.data, timeperiod=12, plotname='TA_ROCR')
+            bt.talib.ROCR100(self.data, timeperiod=12, plotname='TA_ROCR100')
+            bt.indicators.ROC(self.data, period=12)
+            bt.indicators.Momentum(self.data, period=12)
+            bt.indicators.MomentumOscillator(self.data, period=12)
+
+        elif self.p.ind == 'williamsr':
+            bt.talib.WILLR(self.data.high, self.data.low, self.data.close,
+                           plotname='TA_WILLR')
+            bt.indicators.WilliamsR(self.data)
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    dkwargs = dict()
+    if args.fromdate:
+        fromdate = datetime.datetime.strptime(args.fromdate, '%Y-%m-%d')
+        dkwargs['fromdate'] = fromdate
+
+    if args.todate:
+        todate = datetime.datetime.strptime(args.todate, '%Y-%m-%d')
+        dkwargs['todate'] = todate
+
+    data0 = bt.feeds.YahooFinanceCSVData(dataname=args.data0, **dkwargs)
+    cerebro.adddata(data0)
+
+    cerebro.addstrategy(TALibStrategy, ind=args.ind, doji=not args.no_doji)
+
+    cerebro.run(runcone=not args.use_next, stdstats=False)
+    if args.plot:
+        pkwargs = dict(style='candle')
+        if args.plot is not True:  # evals to True but is not True
+            npkwargs = eval('dict(' + args.plot + ')')  # args were passed
+            pkwargs.update(npkwargs)
+
+        cerebro.plot(**pkwargs)
+
+
+def parse_args(pargs=None):
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Sample for sizer')
+
+    parser.add_argument('--data0', required=False,
+                        default='../../datas/yhoo-1996-2015.txt',
+                        help='Data to be read in')
+
+    parser.add_argument('--fromdate', required=False,
+                        default='2005-01-01',
+                        help='Starting date in YYYY-MM-DD format')
+
+    parser.add_argument('--todate', required=False,
+                        default='2006-12-31',
+                        help='Ending date in YYYY-MM-DD format')
+
+    parser.add_argument('--ind', required=False, action='store',
+                        default=TALibStrategy.INDS[0],
+                        choices=TALibStrategy.INDS,
+                        help=('Which indicator pair to show together'))
+
+    parser.add_argument('--no-doji', required=False, action='store_true',
+                        help=('Remove Doji CandleStick pattern checker'))
+
+    parser.add_argument('--use-next', required=False, action='store_true',
+                        help=('Use next (step by step) '
+                              'instead of once (batch)'))
+
+    # Plot options
+    parser.add_argument('--plot', '-p', nargs='?', required=False,
+                        metavar='kwargs', const=True,
+                        help=('Plot the read data applying any kwargs passed\n'
+                              '\n'
+                              'For example (escape the quotes if needed):\n'
+                              '\n'
+                              '  --plot style="candle" (to plot candles)\n'))
+
+    if pargs is not None:
+        return parser.parse_args(pargs)
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Indicators - ta-lib
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Indicators - Usage
+Indicators - Development
+Indicators - Timeframe Mixing
+Indicators - Reference
+Indicators - ta-lib
+Indicators - ta-lib - Reference
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Requirements
+Using ta-lib
+Moving Averages and MA_Type
+Plotting ta-lib indicators
+Examples and comparisons
+KAMA (Kaufman Moving Average)
+SMA
+EMA
+Stochastic
+RSI
+MACD
+Bollinger Bands
+AROON
+Ultimate Oscillator
+Trix
+ADXR
+DEMA
+TEMA
+PPO
+WilliamsR
+ROC
+Sample Usage
+Sample Code
+TA-Lib
+Even if backtrader offers an already high number of built-in indicators and developing an indicator is mostly a matter of defining the inputs, outputs and writing the formula in a natural manner, some people want to use TA-LIB. Some of the reasons:
+
+Indicator X is in the library and not in backtrader (the author would gladly accept a request)
+
+TA-LIB behavior is well known and people trust good old things
+
+In order to satisfy each and every taste, TA-LIB integration is offered.
+
+Requirements
+Python wrapper for TA-Lib
+
+Any dependencies needed by it (for example numpy)
+
+The installation details are on the GitHub repository
+
+Using ta-lib
+As easy as using any of the indicators already built-in in backtrader. Example of a Simple Moving Average. First the backtrader one:
+
+
+import backtrader as bt
+
+class MyStrategy(bt.Strategy):
+    params = (('period', 20),)
+
+    def __init__(self):
+        self.sma = bt.indicators.SMA(self.data, period=self.p.period)
+        ...
+
+...
+Now the ta-lib example:
+
+
+import backtrader as bt
+
+class MyStrategy(bt.Strategy):
+    params = (('period', 20),)
+
+    def __init__(self):
+        self.sma = bt.talib.SMA(self.data, timeperiod=self.p.period)
+        ...
+
+...
+Et voilá! Of course the params for the ta-lib indicators are defined by the library itself and not by backtrader. In this case the SMA in ta-lib takes a parameter named timeperiod to defined the size of the operating window.
+
+For indicators that require more than one input, for example the Stochastic:
+
+
+import backtrader as bt
+
+class MyStrategy(bt.Strategy):
+    params = (('period', 20),)
+
+    def __init__(self):
+        self.stoc = bt.talib.STOCH(self.data.high, self.data.low, self.data.close,
+                                   fastk_period=14, slowk_period=3, slowd_period=3)
+
+        ...
+
+...
+Notice how high, low and close have been individually passed. One could always pass open instead of low (or any other data series) and experiment.
+
+The ta-lib indicator documentation is automatically parsed and added to the backtrader docs. You may also check the ta-lib source code/docs. Or adittionally do:
+
+
+print(bt.talib.SMA.__doc__)
+Which in this case outputs:
+
+
+SMA([input_arrays], [timeperiod=30])
+
+Simple Moving Average (Overlap Studies)
+
+Inputs:
+    price: (any ndarray)
+Parameters:
+    timeperiod: 30
+Outputs:
+    real
+Which offers some information:
+
+Which Input is to be expected (DISREGARD the ``ndarray`` comment because backtrader manages the conversions in the background)
+
+Which parameters and which default values
+
+Which output lines the indicator actually offers
+
+Moving Averages and MA_Type
+To select a specific moving average for indicators like bt.talib.STOCH, the standard ta-lib MA_Type is accesible with backtrader.talib.MA_Type. For example:
+
+
+import backtrader as bt
+print('SMA:', bt.talib.MA_Type.SMA)
+print('T3:', bt.talib.MA_Type.T3)
+Plotting ta-lib indicators
+Just as with regular usage, there is nothing special to do to plot the ta-lib indicators.
+
+Note
+
+Indicators which output a CANDLE (all those looking for a candlestick pattern) deliver a binary output: either 0 or 100. In order to avoid adding a subplot to the chart, there is an automated plotting translation to plot them over the data at the point in time in which the pattern was recognized.
+
+Examples and comparisons
+The following are plots comparing the outputs of some ta-lib indicators against the equivalent built-in indicators in backtrader. To consider:
+
+The ta-lib indicators get a TA_ prefix on the plot. This is specifically done by the sample to help the user spot which is which
+
+Moving Averages (if both deliver the same result) will be plotted ON top of the other existing Moving Average. The two indicators cannot be seen separately and the test is a pass if that’s the case.
+
+All samples include a CDLDOJI indicator as a reference
+
+KAMA (Kaufman Moving Average)
+This is the 1st example because it is the only (from all indicators which the sample directly compare) that has a difference:
+
+The initial values of the the samples are not the same
+
+At some point in time, the values converge and both KAMA implementations have the same behavior.
+
+After having analyzed the ta-lib source code:
+
+The implementation in ta-lib makes a non-industry standard choice for the 1st values of the KAMA.
+
+The choice can be seen in the source code quoting from the source code): The yesterday price is used here as the previous KAMA.
+
+backtrader does the usual choice which is the same as for example the one from Stockcharts:
+
+KAMA at StockCharts
+
+Since we need an initial value to start the calculation, the first KAMA is just a simple moving average
+
+Hence the difference. Furthermore:
+
+The ta-lib KAMA implementation doesn’t allow specifying the fast and slow periods for the adjustment of the scalable constant defined by Kaufman.
+Sample execution:
+
+
+$ ./talibtest.py --plot --ind kama
+Output
+
+image
+
+SMA
+
+$ ./talibtest.py --plot --ind sma
+Output
+
+image
+
+EMA
+
+$ ./talibtest.py --plot --ind ema
+Output
+
+image
+
+Stochastic
+
+$ ./talibtest.py --plot --ind stoc
+Output
+
+image
+
+RSI
+
+$ ./talibtest.py --plot --ind rsi
+Output
+
+image
+
+MACD
+
+$ ./talibtest.py --plot --ind macd
+Output
+
+image
+
+Bollinger Bands
+
+$ ./talibtest.py --plot --ind bollinger
+Output
+
+image
+
+AROON
+Note that ta-lib chooses to put the down line first and the colours are inverted when compared with the backtrader built-in indicator.
+
+
+$ ./talibtest.py --plot --ind aroon
+Output
+
+image
+
+Ultimate Oscillator
+
+$ ./talibtest.py --plot --ind ultimate
+Output
+
+image
+
+Trix
+
+$ ./talibtest.py --plot --ind trix
+Output
+
+image
+
+ADXR
+Here backtrader offers both the ADX and ADXR lines.
+
+
+$ ./talibtest.py --plot --ind adxr
+Output
+
+image
+
+DEMA
+
+$ ./talibtest.py --plot --ind dema
+Output
+
+image
+
+TEMA
+
+$ ./talibtest.py --plot --ind tema
+Output
+
+image
+
+PPO
+Here backtrader offers not only the ppo line, but a more traditional macd approach.
+
+
+$ ./talibtest.py --plot --ind ppo
+Output
+
+image
+
+WilliamsR
+
+$ ./talibtest.py --plot --ind williamsr
+Output
+
+image
+
+ROC
+All indicators show have exactly the same shape, but how to track momentum or rate of change has several definitions
+
+
+$ ./talibtest.py --plot --ind roc
+Output
+
+image
+
+Sample Usage
+
+$ ./talibtest.py --help
+usage: talibtest.py [-h] [--data0 DATA0] [--fromdate FROMDATE]
+                    [--todate TODATE]
+                    [--ind {sma,ema,stoc,rsi,macd,bollinger,aroon,ultimate,trix,kama,adxr,dema,tema,ppo,williamsr,roc}]
+                    [--no-doji] [--use-next] [--plot [kwargs]]
+
+Sample for ta-lib
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data0 DATA0         Data to be read in (default:
+                        ../../datas/yhoo-1996-2015.txt)
+  --fromdate FROMDATE   Starting date in YYYY-MM-DD format (default:
+                        2005-01-01)
+  --todate TODATE       Ending date in YYYY-MM-DD format (default: 2006-12-31)
+  --ind {sma,ema,stoc,rsi,macd,bollinger,aroon,ultimate,trix,kama,adxr,dema,tema,ppo,williamsr,roc}
+                        Which indicator pair to show together (default: sma)
+  --no-doji             Remove Doji CandleStick pattern checker (default:
+                        False)
+  --use-next            Use next (step by step) instead of once (batch)
+                        (default: False)
+  --plot [kwargs], -p [kwargs]
+                        Plot the read data applying any kwargs passed For
+                        example (escape the quotes if needed): --plot
+                        style="candle" (to plot candles) (default: None)
+Sample Code
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class TALibStrategy(bt.Strategy):
+    params = (('ind', 'sma'), ('doji', True),)
+
+    INDS = ['sma', 'ema', 'stoc', 'rsi', 'macd', 'bollinger', 'aroon',
+            'ultimate', 'trix', 'kama', 'adxr', 'dema', 'ppo', 'tema',
+            'roc', 'williamsr']
+
+    def __init__(self):
+        if self.p.doji:
+            bt.talib.CDLDOJI(self.data.open, self.data.high,
+                             self.data.low, self.data.close)
+
+        if self.p.ind == 'sma':
+            bt.talib.SMA(self.data.close, timeperiod=25, plotname='TA_SMA')
+            bt.indicators.SMA(self.data, period=25)
+        elif self.p.ind == 'ema':
+            bt.talib.EMA(timeperiod=25, plotname='TA_SMA')
+            bt.indicators.EMA(period=25)
+        elif self.p.ind == 'stoc':
+            bt.talib.STOCH(self.data.high, self.data.low, self.data.close,
+                           fastk_period=14, slowk_period=3, slowd_period=3,
+                           plotname='TA_STOCH')
+
+            bt.indicators.Stochastic(self.data)
+
+        elif self.p.ind == 'macd':
+            bt.talib.MACD(self.data, plotname='TA_MACD')
+            bt.indicators.MACD(self.data)
+            bt.indicators.MACDHisto(self.data)
+        elif self.p.ind == 'bollinger':
+            bt.talib.BBANDS(self.data, timeperiod=25,
+                            plotname='TA_BBANDS')
+            bt.indicators.BollingerBands(self.data, period=25)
+
+        elif self.p.ind == 'rsi':
+            bt.talib.RSI(self.data, plotname='TA_RSI')
+            bt.indicators.RSI(self.data)
+
+        elif self.p.ind == 'aroon':
+            bt.talib.AROON(self.data.high, self.data.low, plotname='TA_AROON')
+            bt.indicators.AroonIndicator(self.data)
+
+        elif self.p.ind == 'ultimate':
+            bt.talib.ULTOSC(self.data.high, self.data.low, self.data.close,
+                            plotname='TA_ULTOSC')
+            bt.indicators.UltimateOscillator(self.data)
+
+        elif self.p.ind == 'trix':
+            bt.talib.TRIX(self.data, timeperiod=25,  plotname='TA_TRIX')
+            bt.indicators.Trix(self.data, period=25)
+
+        elif self.p.ind == 'adxr':
+            bt.talib.ADXR(self.data.high, self.data.low, self.data.close,
+                          plotname='TA_ADXR')
+            bt.indicators.ADXR(self.data)
+
+        elif self.p.ind == 'kama':
+            bt.talib.KAMA(self.data, timeperiod=25, plotname='TA_KAMA')
+            bt.indicators.KAMA(self.data, period=25)
+
+        elif self.p.ind == 'dema':
+            bt.talib.DEMA(self.data, timeperiod=25, plotname='TA_DEMA')
+            bt.indicators.DEMA(self.data, period=25)
+
+        elif self.p.ind == 'ppo':
+            bt.talib.PPO(self.data, plotname='TA_PPO')
+            bt.indicators.PPO(self.data, _movav=bt.indicators.SMA)
+
+        elif self.p.ind == 'tema':
+            bt.talib.TEMA(self.data, timeperiod=25, plotname='TA_TEMA')
+            bt.indicators.TEMA(self.data, period=25)
+
+        elif self.p.ind == 'roc':
+            bt.talib.ROC(self.data, timeperiod=12, plotname='TA_ROC')
+            bt.talib.ROCP(self.data, timeperiod=12, plotname='TA_ROCP')
+            bt.talib.ROCR(self.data, timeperiod=12, plotname='TA_ROCR')
+            bt.talib.ROCR100(self.data, timeperiod=12, plotname='TA_ROCR100')
+            bt.indicators.ROC(self.data, period=12)
+            bt.indicators.Momentum(self.data, period=12)
+            bt.indicators.MomentumOscillator(self.data, period=12)
+
+        elif self.p.ind == 'williamsr':
+            bt.talib.WILLR(self.data.high, self.data.low, self.data.close,
+                           plotname='TA_WILLR')
+            bt.indicators.WilliamsR(self.data)
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    dkwargs = dict()
+    if args.fromdate:
+        fromdate = datetime.datetime.strptime(args.fromdate, '%Y-%m-%d')
+        dkwargs['fromdate'] = fromdate
+
+    if args.todate:
+        todate = datetime.datetime.strptime(args.todate, '%Y-%m-%d')
+        dkwargs['todate'] = todate
+
+    data0 = bt.feeds.YahooFinanceCSVData(dataname=args.data0, **dkwargs)
+    cerebro.adddata(data0)
+
+    cerebro.addstrategy(TALibStrategy, ind=args.ind, doji=not args.no_doji)
+
+    cerebro.run(runcone=not args.use_next, stdstats=False)
+    if args.plot:
+        pkwargs = dict(style='candle')
+        if args.plot is not True:  # evals to True but is not True
+            npkwargs = eval('dict(' + args.plot + ')')  # args were passed
+            pkwargs.update(npkwargs)
+
+        cerebro.plot(**pkwargs)
+
+
+def parse_args(pargs=None):
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Sample for sizer')
+
+    parser.add_argument('--data0', required=False,
+                        default='../../datas/yhoo-1996-2015.txt',
+                        help='Data to be read in')
+
+    parser.add_argument('--fromdate', required=False,
+                        default='2005-01-01',
+                        help='Starting date in YYYY-MM-DD format')
+
+    parser.add_argument('--todate', required=False,
+                        default='2006-12-31',
+                        help='Ending date in YYYY-MM-DD format')
+
+    parser.add_argument('--ind', required=False, action='store',
+                        default=TALibStrategy.INDS[0],
+                        choices=TALibStrategy.INDS,
+                        help=('Which indicator pair to show together'))
+
+    parser.add_argument('--no-doji', required=False, action='store_true',
+                        help=('Remove Doji CandleStick pattern checker'))
+
+    parser.add_argument('--use-next', required=False, action='store_true',
+                        help=('Use next (step by step) '
+                              'instead of once (batch)'))
+
+    # Plot options
+    parser.add_argument('--plot', '-p', nargs='?', required=False,
+                        metavar='kwargs', const=True,
+                        help=('Plot the read data applying any kwargs passed\n'
+                              '\n'
+                              'For example (escape the quotes if needed):\n'
+                              '\n'
+                              '  --plot style="candle" (to plot candles)\n'))
+
+    if pargs is not None:
+        return parser.parse_args(pargs)
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+

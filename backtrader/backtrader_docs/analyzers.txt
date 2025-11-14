@@ -1,0 +1,1506 @@
+Skip to content
+logo
+Backtrader
+Analyzers
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Analyzers
+Analyzers - PyFolio
+Analyzers - PyFolio - Integration
+Analyzers Reference
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Nature of analyzers
+Location in the ecosystem
+Additional Location
+Attributes
+Returning the analysis
+Modus operandi
+Analyzer Patterns
+A quick example
+Forensic Analysis of an Analyzer
+Reference
+class backtrader.Analyzer()
+start()
+stop()
+prenext()
+nextstart()
+next()
+notify_cashvalue(cash, value)
+notify_fund(cash, value, fundvalue, shares)
+notify_order(order)
+notify_trade(trade)
+get_analysis()
+create_analysis()
+print(*args, **kwargs)
+pprint(*args, **kwargs)
+len()
+Analyzers
+Be it backtesting or trading, being able to analyze the performance of the trading system is key to understanding if not only profit has been attained, but also if it has been achieved with too much risk or if it was really worth the effort when compared with a reference asset (or a risk-free asset)
+
+That’s where the family of Analyzer objects comes in: provide an analysis of what’s happened or even of what’s actually happening.
+
+Nature of analyzers
+The interface is modeled after that of Lines objects, feature for example a next method but there is a major difference:
+
+Analyzers do not hold lines.
+
+That means they are not expensive in terms of memory because even after having analyzed thousands of price bars they may still simply hold a single result in memory.
+
+Location in the ecosystem
+Analyzer objects are (like strategies, observers and datas) added to the system through a cerebro instance:
+
+addanalyzer(ancls, *args, **kwargs)
+But when it comes to operation during cerebro.run the following will happen for each strategy present in the system
+
+ancls will be instantiated with *args and **kwargs during a cerebro.run
+
+The ancls instance will be attached to the strategy
+
+That means:
+
+If the backtesting run contains for example 3 strategies then 3 instances of ancls will be created and each of them will be attached to a different strategy.
+Bottomline: an analyzer analyzes the performance of a single strategy and not the performance of an entires system
+
+Additional Location
+Some Analyzer objects may actually use other analyzers to complete its work. For example: SharpeRatio uses the output of TimeReturn for the calculations.
+
+These sub-analyzers or slave-analyzers will also be inserted into the same strategy as the one creating them. But they are completely invisible to the user.
+
+Attributes
+To carry out the intended work, Analyzer objects are provided with some default attributes which are automagically passed and set in the instance for ease of use:
+
+self.strategy: reference to the strategy subclass in which the analyzer object is operating. Anything accessible by the strategy can also be accessd by the analyzer
+
+self.datas[x]: the array of data feeds present in the strategy. Although this could be accesed over the strategy reference, the shortcut makes work more comfortable.
+
+self.data: shortcut to self.datas[0] for extra comfort.
+
+self.dataX: shortcuts to the different self.datas[x]
+
+Some other aliases are available although they are probably an overkill:
+
+
+* `self.dataX_Y` where X is a reference to `self.datas[X]` and `Y`
+  refers to the line, finally pointing to: `self.datas[X].lines[Y]`
+If the line has a name, the following is also available:
+
+
+* `self.dataX_Name` which resolves to `self.datas[X].Name` returning
+  the line by name rather than by index
+For the first data, the last two shortcuts are available without the initial X numeric reference. For example:
+
+
+* `self.data_2` refers to `self.datas[0].lines[2]`
+And
+
+
+* `self.data_close` refers to `self.datas[0].close`
+Returning the analysis
+The Analyzer base class creates a self.rets (of type collections.OrderedDict) member attribute to return the analysis. This is done in the method create_analysis which can be overriden by subclasses if creating custom analyzers.
+
+Modus operandi
+Although Analyzer objects are not Lines objects and therefore do not iterate over lines, they have been designed to follow the same operation pattern.
+
+Instantiated before the system is put into motion (therefore calling __init__)
+
+Signaled the begin of operations with start
+
+prenext / nextstart / next will be invoked following the calculated minimum period of the strategy the indicator is working in.
+
+The default behaviour of prenext and nextstart is to invoke next, because an analyzer may be analyzing from the very first moment the system is alive.
+
+It may be customary to call len(self) in Lines objects to check the actual amount of bars. This also works in Analyzers by returning the value for self.strategy
+
+Orders and trades will be notified just like they are to the strategy via notify_order and notify_trade
+
+Cash and value will also be notified like it is done with the strategy over the notify_cashvalue method
+
+Cash, value and fundvalue and fund shares will also be notified like it is done with the strategy over the notify_fund method
+
+stop will be invoked to signal the end of operations
+
+Once the regular operations cycle has been completed, the analyzers featuring additional methods for extracting/outputting information
+
+get_analysis: which ideally (not enforced) returnes a dict -like object containing the analysis results.
+
+print uses a standard backtrader.WriterFile (unless overriden) to write the analysis result from get_analysis.
+
+pprint (pretty print) uses the Python pprint module to print the get_analysis resutls.
+
+And finally:
+
+get_analysis creates a member attribute self.ret (of type collections.OrderedDict) to which analyzers write the analysis results.
+
+Subclasses of Analyzer can override this method to change this behavior
+
+Analyzer Patterns
+Development of Analyzer objects in the backtrader platform have revealed 2 different usage patterns for the generation of the analysis:
+
+During execution by gathering information in the notify_xxx and next methods, and generating the current information of the analysis in next
+
+The TradeAnalyzer, for example, uses just the notify_trade method to generate the statistics.
+
+Gather (or not) the information as above, but generate the analysis in a single pass during the stop method
+
+The SQN (System Quality Number) gathers trade information during notify_trade but generates the statistic during the stop method
+
+A quick example
+As easy as it can be:
+
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import datetime
+
+import backtrader as bt
+import backtrader.analyzers as btanalyzers
+import backtrader.feeds as btfeeds
+import backtrader.strategies as btstrats
+
+cerebro = bt.Cerebro()
+
+# data
+dataname = '../datas/sample/2005-2006-day-001.txt'
+data = btfeeds.BacktraderCSVData(dataname=dataname)
+
+cerebro.adddata(data)
+
+# strategy
+cerebro.addstrategy(btstrats.SMA_CrossOver)
+
+# Analyzer
+cerebro.addanalyzer(btanalyzers.SharpeRatio, _name='mysharpe')
+
+thestrats = cerebro.run()
+thestrat = thestrats[0]
+
+print('Sharpe Ratio:', thestrat.analyzers.mysharpe.get_analysis())
+Executing it (having stored it in analyzer-test.py:
+
+
+$ ./analyzer-test.py
+Sharpe Ratio: {'sharperatio': 11.647332609673256}
+There is no plotting, because the SharpeRatio is a single value at the end of the calculation.
+
+Forensic Analysis of an Analyzer
+Let’s repeat that Analyzers are not Lines objects, but to seamlessly integrate them into the backtrader ecosystem, the internal API conventions of several Lines object are followed (actually a mixture of them)
+
+Note
+
+The code for the SharpeRatio has evolved to take for example into account annualization and the version here should only be a reference.
+
+Please check the Analyzers Reference
+
+There is additionally a SharpeRatio_A which provides the value directly in annualized form regardless of the sought timeframe
+
+Code for SharpeRatio to serve as a basis (a simplified version)
+
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import operator
+
+from backtrader.utils.py3 import map
+from backtrader import Analyzer, TimeFrame
+from backtrader.mathsupport import average, standarddev
+from backtrader.analyzers import AnnualReturn
+
+
+class SharpeRatio(Analyzer):
+    params = (('timeframe', TimeFrame.Years), ('riskfreerate', 0.01),)
+
+    def __init__(self):
+        super(SharpeRatio, self).__init__()
+        self.anret = AnnualReturn()
+
+    def start(self):
+        # Not needed ... but could be used
+        pass
+
+    def next(self):
+        # Not needed ... but could be used
+        pass
+
+    def stop(self):
+        retfree = [self.p.riskfreerate] * len(self.anret.rets)
+        retavg = average(list(map(operator.sub, self.anret.rets, retfree)))
+        retdev = standarddev(self.anret.rets)
+
+        self.ratio = retavg / retdev
+
+    def get_analysis(self):
+        return dict(sharperatio=self.ratio)
+The code can be broken down into:
+
+params declaration
+
+Although the declared ones are not used (meant as an example), Analyzers like most other objects in backtrader support parameters
+
+__init__ method
+
+Just like Strategies declare Indicators in __init__, the same do analyzers with support objects.
+
+In this case: the SharpeRatio is calculated using Annual Returns. The calculation will be automatic and will be available to SharpeRatio for its own calculations.
+
+Note
+
+The actual implementation of SharpeRatio uses the more generic and later developed TimeReturn analyzer
+
+next method
+
+SharpeRatio doesn’t need it, but this method will be called after each invocation of the parent strategy next
+
+start method
+
+Called right before the backtesting starts. Can be used for extra initialization tasks. Sharperatio doesn’t need it
+
+stop method
+
+Called right after the backtesting ends. Like SharpeRatio does, it can be used to finish/make the calculation
+
+get_analysis method (returns a dictionary)
+
+Access for external callers to the produced analysis
+
+Returns: a dictionary with the analysis.
+
+Reference
+class backtrader.Analyzer()
+Analyzer base class. All analyzers are subclass of this one
+
+An Analyzer instance operates in the frame of a strategy and provides an analysis for that strategy.
+
+Automagically set member attributes:
+
+self.strategy (giving access to the strategy and anything accessible from it)
+
+self.datas[x] giving access to the array of data feeds present in the the system, which could also be accessed via the strategy reference
+
+self.data, giving access to self.datas[0]
+
+self.dataX -> self.datas[X]
+
+self.dataX_Y -> self.datas[X].lines[Y]
+
+self.dataX_name -> self.datas[X].name
+
+self.data_name -> self.datas[0].name
+
+self.data_Y -> self.datas[0].lines[Y]
+
+This is not a Lines object, but the methods and operation follow the same design
+
+__init__ during instantiation and initial setup
+
+start / stop to signal the begin and end of operations
+
+prenext / nextstart / next family of methods that follow the calls made to the same methods in the strategy
+
+notify_trade / notify_order / notify_cashvalue / notify_fund which receive the same notifications as the equivalent methods of the strategy
+
+The mode of operation is open and no pattern is preferred. As such the analysis can be generated with the next calls, at the end of operations during stop and even with a single method like notify_trade
+
+The important thing is to override get_analysis to return a dict-like object containing the results of the analysis (the actual format is implementation dependent)
+
+start()
+Invoked to indicate the start of operations, giving the analyzer time to setup up needed things
+
+stop()
+Invoked to indicate the end of operations, giving the analyzer time to shut down needed things
+
+prenext()
+Invoked for each prenext invocation of the strategy, until the minimum period of the strategy has been reached
+
+The default behavior for an analyzer is to invoke next
+
+nextstart()
+Invoked exactly once for the nextstart invocation of the strategy, when the minimum period has been first reached
+
+next()
+Invoked for each next invocation of the strategy, once the minum preiod of the strategy has been reached
+
+notify_cashvalue(cash, value)
+Receives the cash/value notification before each next cycle
+
+notify_fund(cash, value, fundvalue, shares)
+Receives the current cash, value, fundvalue and fund shares
+
+notify_order(order)
+Receives order notifications before each next cycle
+
+notify_trade(trade)
+Receives trade notifications before each next cycle
+
+get_analysis()
+Returns a dict-like object with the results of the analysis
+
+The keys and format of analysis results in the dictionary is implementation dependent.
+
+It is not even enforced that the result is a dict-like object, just the convention
+
+The default implementation returns the default OrderedDict rets created by the default create_analysis method
+
+create_analysis()
+Meant to be overriden by subclasses. Gives a chance to create the structures that hold the analysis.
+
+The default behaviour is to create a OrderedDict named rets
+
+print(*args, **kwargs)
+Prints the results returned by get_analysis via a standard Writerfile object, which defaults to writing things to standard output
+
+pprint(*args, **kwargs)
+Prints the results returned by get_analysis using the pretty print Python module (pprint)
+
+len()
+Support for invoking len on analyzers by actually returning the current length of the strategy the analyzer operates on
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Analyzers - PyFolio
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Analyzers
+Analyzers - PyFolio
+Analyzers - PyFolio - Integration
+Analyzers Reference
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Usage
+Sample Code
+Reference
+PyFolio Overview
+Note
+
+As of (at least) 2017-07-25 the pyfolio APIs have changed and create_full_tear_sheet no longer has a gross_lev as a named argument.
+
+Consequently the sample for integration doesn’t work
+
+Quoting from the main pyfolio page at http://quantopian.github.io/pyfolio/:
+
+
+pyfolio is a Python library for performance and risk analysis of financial
+portfolios developed by Quantopian Inc. It works well with the Zipline open
+source backtesting library
+And now it works also well with backtrader. What’s needed:
+
+pyfolio obviously
+
+And its dependencies (things like pandas, seaborn …)
+
+Note
+
+During the integration with version 0.5.1, an update to the most recent packages of the dependencies was needed, like seaborn from the previously installed 0.7.0-dev to 0.7.1, apparently due to the absence of the method swarmplot
+
+Usage
+Add the PyFolio analyzer to the cerebro mix:
+
+
+cerebro.addanalyzer(bt.analyzers.PyFolio)
+Run and retrieve the 1st strategy:
+
+
+strats = cerebro.run()
+strat0 = strats[0]
+Retrieve the analyzer using whatever name you gave to it or the default name it will be given to it: pyfolio. For example:
+
+
+pyfolio = strats.analyzers.getbyname('pyfolio')
+Use the analyzer method get_pf_items to retrieve the 4 components later needed for pyfolio:
+
+
+returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+!!! note
+
+
+The integration was done looking at test samples available with
+`pyfolio` and the same headers (or absence of) has been replicated
+Work with pyfolio (this is already outside of the backtrader ecosystem)
+
+Some usage notes not directly related to backtrader
+
+pyfolio automatic plotting works outside of a Jupyter Notebook, but it works best inside
+
+pyfolio data tables’ output seems to barely work outside of a Jupyter Notebook. It works inside the Notebook
+
+The conclusion is easy if working with pyfolio is wished: work inside a Jupyter Notebook
+
+Sample Code
+The code would look like this:
+
+
+...
+cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
+...
+results = cerebro.run()
+strat = results[0]
+pyfoliozer = strat.analyzers.getbyname('pyfolio')
+returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+...
+...
+# pyfolio showtime
+import pyfolio as pf
+pf.create_full_tear_sheet(
+    returns,
+    positions=positions,
+    transactions=transactions,
+    gross_lev=gross_lev,
+    live_start_date='2005-05-01',  # This date is sample specific
+    round_trips=True)
+
+# At this point tables and chart will show up
+Reference
+Look into the Analyzers Reference for the PyFolio analyzer and which analyzers it uses internally
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Analyzers - PyFolio - Integration
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Analyzers
+Analyzers - PyFolio
+Analyzers - PyFolio - Integration
+Analyzers Reference
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+No PyFolio
+A PyFolio run
+Pyfolio Integration
+The integration of a portfolio tool, namely pyfolio, came up with in Ticket #108.
+
+A first look at the tutorial deemed it as difficult, given the tight integration amongst zipline and pyfolio, but the sample test data available with pyfolio for some other uses is actually pretty useful to decode what’s running behind the scenes and hence the wonder of integration.
+
+Most of the pieces were already in-place in backtrader:
+
+Analyzer infrastructure
+
+Children analyzer
+
+A TimeReturn analyzer
+
+Only a main PyFolio analyzer and 3 easy children analyzer are needed. Plus a method that relies on one of the dependencies already needed by pyfolio which is pandas.
+
+The most challenging part … “getting all the dependencies right”.
+
+Update of pandas
+
+Update of numpy
+
+Update of scikit-lean
+
+Update of seaborn
+
+Under Unix-like environments with a C compiler it’s all about time. Under Windows and even with the specific Microsoft compiler installed (in this case the chain for Python 2.7) things failed. But a well known site with a collection of up-to-date packages for Windows helped. Visit it if you ever need it:
+
+http://www.lfd.uci.edu/~gohlke/pythonlibs/
+The integration wouldn’t be complete if it wasn’t tested and that’s why the usual sample is as always present.
+
+No PyFolio
+The sample uses random.randint to decide when to buy/sell, so this is simply a check that things are working:
+
+
+$ ./pyfoliotest.py --printout --no-pyfolio --plot
+Output:
+
+
+Len,Datetime,Open,High,Low,Close,Volume,OpenInterest
+0001,2005-01-03T23:59:59,38.36,38.90,37.65,38.18,25482800.00,0.00
+BUY  1000 @%23.58
+0002,2005-01-04T23:59:59,38.45,38.54,36.46,36.58,26625300.00,0.00
+BUY  1000 @%36.58
+SELL 500 @%22.47
+0003,2005-01-05T23:59:59,36.69,36.98,36.06,36.13,18469100.00,0.00
+...
+SELL 500 @%37.51
+0502,2006-12-28T23:59:59,25.62,25.72,25.30,25.36,11908400.00,0.00
+0503,2006-12-29T23:59:59,25.42,25.82,25.33,25.54,16297800.00,0.00
+SELL 250 @%17.14
+SELL 250 @%37.01
+image
+
+There a 3 datas and several buy and sell operations are randomly chosen and scattered over the 2 year default life of the test run
+
+A PyFolio run
+pyfolio things work well when running inside a Jupyter Notebook including inline plotting. Here is the notebook
+
+Note
+
+runstrat gets here [] as argument to run with default arguments and skip arguments passed by the notebook itself
+
+
+%matplotlib inline
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+
+import argparse
+import datetime
+import random
+
+import backtrader as bt
+
+
+class St(bt.Strategy):
+    params = (
+        ('printout', False),
+        ('stake', 1000),
+    )
+
+    def __init__(self):
+        pass
+
+    def start(self):
+        if self.p.printout:
+            txtfields = list()
+            txtfields.append('Len')
+            txtfields.append('Datetime')
+            txtfields.append('Open')
+            txtfields.append('High')
+            txtfields.append('Low')
+            txtfields.append('Close')
+            txtfields.append('Volume')
+            txtfields.append('OpenInterest')
+            print(','.join(txtfields))
+
+    def next(self):
+        if self.p.printout:
+            # Print only 1st data ... is just a check that things are running
+            txtfields = list()
+            txtfields.append('%04d' % len(self))
+            txtfields.append(self.data.datetime.datetime(0).isoformat())
+            txtfields.append('%.2f' % self.data0.open[0])
+            txtfields.append('%.2f' % self.data0.high[0])
+            txtfields.append('%.2f' % self.data0.low[0])
+            txtfields.append('%.2f' % self.data0.close[0])
+            txtfields.append('%.2f' % self.data0.volume[0])
+            txtfields.append('%.2f' % self.data0.openinterest[0])
+            print(','.join(txtfields))
+
+        # Data 0
+        for data in self.datas:
+            toss = random.randint(1, 10)
+            curpos = self.getposition(data)
+            if curpos.size:
+                if toss > 5:
+                    size = curpos.size // 2
+                    self.sell(data=data, size=size)
+                    if self.p.printout:
+                        print('SELL {} @%{}'.format(size, data.close[0]))
+
+            elif toss < 5:
+                self.buy(data=data, size=self.p.stake)
+                if self.p.printout:
+                    print('BUY  {} @%{}'.format(self.p.stake, data.close[0]))
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+    cerebro.broker.set_cash(args.cash)
+
+    dkwargs = dict()
+    if args.fromdate:
+        fromdate = datetime.datetime.strptime(args.fromdate, '%Y-%m-%d')
+        dkwargs['fromdate'] = fromdate
+
+    if args.todate:
+        todate = datetime.datetime.strptime(args.todate, '%Y-%m-%d')
+        dkwargs['todate'] = todate
+
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **dkwargs)
+    cerebro.adddata(data0, name='Data0')
+
+    data1 = bt.feeds.BacktraderCSVData(dataname=args.data1, **dkwargs)
+    cerebro.adddata(data1, name='Data1')
+
+    data2 = bt.feeds.BacktraderCSVData(dataname=args.data2, **dkwargs)
+    cerebro.adddata(data2, name='Data2')
+
+    cerebro.addstrategy(St, printout=args.printout)
+    if not args.no_pyfolio:
+        cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
+
+    results = cerebro.run()
+    if not args.no_pyfolio:
+        strat = results[0]
+        pyfoliozer = strat.analyzers.getbyname('pyfolio')
+
+        returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+        if args.printout:
+            print('-- RETURNS')
+            print(returns)
+            print('-- POSITIONS')
+            print(positions)
+            print('-- TRANSACTIONS')
+            print(transactions)
+            print('-- GROSS LEVERAGE')
+            print(gross_lev)
+
+        import pyfolio as pf
+        pf.create_full_tear_sheet(
+            returns,
+            positions=positions,
+            transactions=transactions,
+            gross_lev=gross_lev,
+            live_start_date='2005-05-01',
+            round_trips=True)
+
+    if args.plot:
+        cerebro.plot(style=args.plot_style)
+
+
+def parse_args(args=None):
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Sample for pivot point and cross plotting')
+
+    parser.add_argument('--data0', required=False,
+                        default='../../datas/yhoo-1996-2015.txt',
+                        help='Data to be read in')
+
+    parser.add_argument('--data1', required=False,
+                        default='../../datas/orcl-1995-2014.txt',
+                        help='Data to be read in')
+
+    parser.add_argument('--data2', required=False,
+                        default='../../datas/nvda-1999-2014.txt',
+                        help='Data to be read in')
+
+    parser.add_argument('--fromdate', required=False,
+                        default='2005-01-01',
+                        help='Starting date in YYYY-MM-DD format')
+
+    parser.add_argument('--todate', required=False,
+                        default='2006-12-31',
+                        help='Ending date in YYYY-MM-DD format')
+
+    parser.add_argument('--printout', required=False, action='store_true',
+                        help=('Print data lines'))
+
+    parser.add_argument('--cash', required=False, action='store',
+                        type=float, default=50000,
+                        help=('Cash to start with'))
+
+    parser.add_argument('--plot', required=False, action='store_true',
+                        help=('Plot the result'))
+
+    parser.add_argument('--plot-style', required=False, action='store',
+                        default='bar', choices=['bar', 'candle', 'line'],
+                        help=('Plot style'))
+
+    parser.add_argument('--no-pyfolio', required=False, action='store_true',
+                        help=('Do not do pyfolio things'))
+
+    import sys
+    aargs = args if args is not None else sys.argv[1:]
+    return parser.parse_args(aargs)
+
+runstrat([])
+
+Entire data start date: 2005-01-03
+Entire data end date: 2006-12-29
+
+
+Out-of-Sample Months: 20
+Backtest Months: 3
+
+[-0.012 -0.025]
+image
+
+image
+
+image
+
+
+pyfolioplotting.py:1210: FutureWarning: .resample() is now a deferred operation
+use .resample(...).mean() instead of .resample(...)
+  **kwargs)
+image
+
+
+<matplotlib.figure.Figure at 0x23982b70>
+image
+
+Usage of the sample:
+
+
+$ ./pyfoliotest.py --help
+usage: pyfoliotest.py [-h] [--data0 DATA0] [--data1 DATA1] [--data2 DATA2]
+                      [--fromdate FROMDATE] [--todate TODATE] [--printout]
+                      [--cash CASH] [--plot] [--plot-style {bar,candle,line}]
+                      [--no-pyfolio]
+
+Sample for pivot point and cross plotting
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data0 DATA0         Data to be read in (default:
+                        ../../datas/yhoo-1996-2015.txt)
+  --data1 DATA1         Data to be read in (default:
+                        ../../datas/orcl-1995-2014.txt)
+  --data2 DATA2         Data to be read in (default:
+                        ../../datas/nvda-1999-2014.txt)
+  --fromdate FROMDATE   Starting date in YYYY-MM-DD format (default:
+                        2005-01-01)
+  --todate TODATE       Ending date in YYYY-MM-DD format (default: 2006-12-31)
+  --printout            Print data lines (default: False)
+  --cash CASH           Cash to start with (default: 50000)
+  --plot                Plot the result (default: False)
+  --plot-style {bar,candle,line}
+                        Plot style (default: bar)
+  --no-pyfolio          Do not do pyfolio things (default: False)
+(C) 2015-2024 Daniel Rodriguez
+
+
+
+Skip to content
+logo
+Backtrader
+Analyzers Reference
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Analyzers
+Analyzers - PyFolio
+Analyzers - PyFolio - Integration
+Analyzers Reference
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+AnnualReturn
+class backtrader.analyzers.AnnualReturn()
+Calmar
+class backtrader.analyzers.Calmar()
+- ``get_analysis``()
+- ``calmar`` the latest calculated calmar ratio()
+DrawDown
+class backtrader.analyzers.DrawDown()
+- ``get_analysis``()
+TimeDrawDown
+class backtrader.analyzers.TimeDrawDown()
+- ``get_analysis``()
+- Those are available during runs as attributes()
+GrossLeverage
+class backtrader.analyzers.GrossLeverage()
+- get_analysis()
+PositionsValue
+class backtrader.analyzers.PositionsValue()
+- get_analysis()
+PyFolio
+class backtrader.analyzers.PyFolio()
+- get_analysis()
+get_pf_items()
+LogReturnsRolling
+class backtrader.analyzers.LogReturnsRolling()
+- get_analysis()
+PeriodStats
+class backtrader.analyzers.PeriodStats()
+Returns
+class backtrader.analyzers.Returns()
+- get_analysis()
+SharpeRatio
+class backtrader.analyzers.SharpeRatio()
+- get_analysis()
+SharpeRatio_A
+class backtrader.analyzers.SharpeRatio_A()
+SQN
+class backtrader.analyzers.SQN()
+- get_analysis()
+TimeReturn
+class backtrader.analyzers.TimeReturn()
+- get_analysis()
+TradeAnalyzer
+class backtrader.analyzers.TradeAnalyzer()
+Transactions
+class backtrader.analyzers.Transactions()
+- get_analysis()
+VWR
+class backtrader.analyzers.VWR()
+- get_analysis()
+Analyzers Reference
+AnnualReturn
+class backtrader.analyzers.AnnualReturn()
+This analyzer calculates the AnnualReturns by looking at the beginning and end of the year
+
+Params:
+
+(None)
+Member Attributes:
+
+rets: list of calculated annual returns
+
+ret: dictionary (key: year) of annual returns
+
+get_analysis:
+
+Returns a dictionary of annual returns (key: year)
+Calmar
+class backtrader.analyzers.Calmar()
+This analyzer calculates the CalmarRatio timeframe which can be different from the one used in the underlying data Params:
+
+timeframe (default: None) If None the timeframe of the 1st data in the system will be used
+
+Pass TimeFrame.NoTimeFrame to consider the entire dataset with no time constraints
+
+compression (default: None)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+If None then the compression of the 1st data of the system will be used
+
+None
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- ``get_analysis``()
+Returns a OrderedDict with a key for the time period and the corresponding rolling Calmar ratio
+
+- ``calmar`` the latest calculated calmar ratio()
+DrawDown
+class backtrader.analyzers.DrawDown()
+This analyzer calculates trading system drawdowns stats such as drawdown values in %s and in dollars, max drawdown in %s and in dollars, drawdown length and drawdown max length
+
+Params:
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- ``get_analysis``()
+Returns a dictionary (with . notation support and subdctionaries) with drawdown stats as values, the following keys/attributes are available:
+
+drawdown - drawdown value in 0.xx %
+
+moneydown - drawdown value in monetary units
+
+len - drawdown length
+
+max.drawdown - max drawdown value in 0.xx %
+
+max.moneydown - max drawdown value in monetary units
+
+max.len - max drawdown length
+
+TimeDrawDown
+class backtrader.analyzers.TimeDrawDown()
+This analyzer calculates trading system drawdowns on the chosen timeframe which can be different from the one used in the underlying data Params:
+
+timeframe (default: None) If None the timeframe of the 1st data in the system will be used
+
+Pass TimeFrame.NoTimeFrame to consider the entire dataset with no time constraints
+
+compression (default: None)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+If None then the compression of the 1st data of the system will be used
+
+None
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- ``get_analysis``()
+Returns a dictionary (with . notation support and subdctionaries) with drawdown stats as values, the following keys/attributes are available:
+
+drawdown - drawdown value in 0.xx %
+
+maxdrawdown - drawdown value in monetary units
+
+maxdrawdownperiod - drawdown length
+
+- Those are available during runs as attributes()
+dd
+
+maxdd
+
+maxddlen
+
+GrossLeverage
+class backtrader.analyzers.GrossLeverage()
+This analyzer calculates the Gross Leverage of the current strategy on a timeframe basis
+
+Params:
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- get_analysis()
+Returns a dictionary with returns as values and the datetime points for each return as keys
+
+PositionsValue
+class backtrader.analyzers.PositionsValue()
+This analyzer reports the value of the positions of the current set of datas
+
+Params:
+
+timeframe (default: None) If None then the timeframe of the 1st data of the system will be used
+
+compression (default: None)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+If None then the compression of the 1st data of the system will be used
+
+headers (default: False)
+
+Add an initial key to the dictionary holding the results with the names of the datas (‘Datetime’ as key
+
+cash (default: False)
+
+Include the actual cash as an extra position (for the header ‘cash’ will be used as name)
+
+- get_analysis()
+Returns a dictionary with returns as values and the datetime points for each return as keys
+
+PyFolio
+class backtrader.analyzers.PyFolio()
+This analyzer uses 4 children analyzers to collect data and transforms it in to a data set compatible with pyfolio
+
+Children Analyzer
+
+TimeReturn
+
+Used to calculate the returns of the global portfolio value
+
+PositionsValue
+
+Used to calculate the value of the positions per data. It sets the headers and cash parameters to True
+
+Transactions
+
+Used to record each transaction on a data (size, price, value). Sets the headers parameter to True
+
+GrossLeverage
+
+Keeps track of the gross leverage (how much the strategy is invested)
+
+Params:
+
+
+These are passed transparently to the children
+
+* timeframe (default: `bt.TimeFrame.Days`)
+
+  If `None` then the timeframe of the 1st data of the system will be
+  used
+
+* compression (default: 1\`)
+
+  If `None` then the compression of the 1st data of the system will be
+  used
+Both timeframe and compression are set following the default behavior of pyfolio which is working with daily data and upsample it to obtaine values like yearly returns.
+
+- get_analysis()
+Returns a dictionary with returns as values and the datetime points for each return as keys
+
+get_pf_items()
+Returns a tuple of 4 elements which can be used for further processing with
+
+
+`pyfolio`
+
+returns, positions, transactions, gross_leverage
+Because the objects are meant to be used as direct input to pyfolio this method makes a local import of pandas to convert the internal backtrader results to pandas DataFrames which is the expected input by, for example, pyfolio.create_full_tear_sheet
+
+The method will break if pandas is not installed
+
+LogReturnsRolling
+class backtrader.analyzers.LogReturnsRolling()
+This analyzer calculates rolling returns for a given timeframe and compression
+
+Params:
+
+timeframe (default: None) If None the timeframe of the 1st data in the system will be used
+
+Pass TimeFrame.NoTimeFrame to consider the entire dataset with no time constraints
+
+compression (default: None)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+If None then the compression of the 1st data of the system will be used
+
+data (default: None)
+
+Reference asset to track instead of the portfolio value.
+
+NOTE: this data must have been added to a cerebro instance with addata, resampledata or replaydata
+
+firstopen (default: True)
+
+When tracking the returns of a data the following is done when crossing a timeframe boundary, for example Years:
+
+Last close of previous year is used as the reference price to see the return in the current year
+The problem is the 1st calculation, because the data has** no previous** closing price. As such and when this parameter is True the opening price will be used for the 1st calculation.
+
+This requires the data feed to have an open price (for close the standard [0] notation will be used without reference to a field price)
+
+Else the initial close will be used.
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- get_analysis()
+Returns a dictionary with returns as values and the datetime points for each return as keys
+
+PeriodStats
+class backtrader.analyzers.PeriodStats()
+Calculates basic statistics for given timeframe
+
+Params:
+
+timeframe (default: Years) If None the timeframe of the 1st data in the system will be used
+
+Pass TimeFrame.NoTimeFrame to consider the entire dataset with no time constraints
+
+compression (default: 1)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+If None then the compression of the 1st data of the system will be used
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+get_analysis returns a dictionary containing the keys:
+
+average
+
+stddev
+
+positive
+
+negative
+
+nochange
+
+best
+
+worst
+
+If the parameter zeroispos is set to True, periods with no change will be counted as positive
+
+Returns
+class backtrader.analyzers.Returns()
+Total, Average, Compound and Annualized Returns calculated using a logarithmic approach
+
+See:
+
+https://www.crystalbull.com/sharpe-ratio-better-with-log-returns/
+Params:
+
+timeframe (default: None)
+
+If None the timeframe of the 1st data in the system will be used
+
+Pass TimeFrame.NoTimeFrame to consider the entire dataset with no time constraints
+
+compression (default: None)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+If None then the compression of the 1st data of the system will be used
+
+tann (default: None)
+
+Number of periods to use for the annualization (normalization) of the
+
+namely:
+
+days: 252
+
+weeks: 52
+
+months: 12
+
+years: 1
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- get_analysis()
+Returns a dictionary with returns as values and the datetime points for each return as keys
+
+The returned dict the following keys:
+
+rtot: Total compound return
+
+ravg: Average return for the entire period (timeframe specific)
+
+rnorm: Annualized/Normalized return
+
+rnorm100: Annualized/Normalized return expressed in 100%
+
+SharpeRatio
+class backtrader.analyzers.SharpeRatio()
+This analyzer calculates the SharpeRatio of a strategy using a risk free asset which is simply an interest rate
+
+Params:
+
+timeframe: (default: TimeFrame.Years)
+
+compression (default: 1)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+riskfreerate (default: 0.01 -> 1%)
+
+Expressed in annual terms (see convertrate below)
+
+convertrate (default: True)
+
+Convert the riskfreerate from annual to monthly, weekly or daily rate. Sub-day conversions are not supported
+
+factor (default: None)
+
+If None, the conversion factor for the riskfree rate from annual to the chosen timeframe will be chosen from a predefined table
+
+Days: 252, Weeks: 52, Months: 12, Years: 1
+
+Else the specified value will be used
+
+annualize (default: False)
+
+If convertrate is True, the SharpeRatio will be delivered in the timeframe of choice.
+
+In most occasions the SharpeRatio is delivered in annualized form. Convert the riskfreerate from annual to monthly, weekly or daily rate. Sub-day conversions are not supported
+
+stddev_sample (default: False)
+
+If this is set to True the standard deviation will be calculated decreasing the denominator in the mean by 1. This is used when calculating the standard deviation if it’s considered that not all samples are used for the calculation. This is known as the Bessels’ correction
+
+daysfactor (default: None)
+
+Old naming for factor. If set to anything else than None and the timeframe is TimeFrame.Days it will be assumed this is old code and the value will be used
+
+legacyannual (default: False)
+
+Use the AnnualReturn return analyzer, which as the name implies only works on years
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- get_analysis()
+Returns a dictionary with key “sharperatio” holding the ratio
+
+SharpeRatio_A
+class backtrader.analyzers.SharpeRatio_A()
+Extension of the SharpeRatio which returns the Sharpe Ratio directly in annualized form
+
+The following param has been changed from SharpeRatio
+
+annualize (default: True)
+SQN
+class backtrader.analyzers.SQN()
+SQN or SystemQualityNumber. Defined by Van K. Tharp to categorize trading systems.
+
+1.6 - 1.9 Below average
+
+2.0 - 2.4 Average
+
+2.5 - 2.9 Good
+
+3.0 - 5.0 Excellent
+
+5.1 - 6.9 Superb
+
+7.0 - Holy Grail?
+
+The formula:
+
+SquareRoot(NumberTrades) * Average(TradesProfit) / StdDev(TradesProfit)
+The sqn value should be deemed reliable when the number of trades >= 30
+
+- get_analysis()
+Returns a dictionary with keys “sqn” and “trades” (number of considered trades)
+
+TimeReturn
+class backtrader.analyzers.TimeReturn()
+This analyzer calculates the Returns by looking at the beginning and end of the timeframe
+
+Params:
+
+timeframe (default: None) If None the timeframe of the 1st data in the system will be used
+
+Pass TimeFrame.NoTimeFrame to consider the entire dataset with no time constraints
+
+compression (default: None)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+If None then the compression of the 1st data of the system will be used
+
+data (default: None)
+
+Reference asset to track instead of the portfolio value.
+
+NOTE: this data must have been added to a cerebro instance with addata, resampledata or replaydata
+
+firstopen (default: True)
+
+When tracking the returns of a data the following is done when crossing a timeframe boundary, for example Years:
+
+Last close of previous year is used as the reference price to see the return in the current year
+The problem is the 1st calculation, because the data has** no previous** closing price. As such and when this parameter is True the opening price will be used for the 1st calculation.
+
+This requires the data feed to have an open price (for close the standard [0] notation will be used without reference to a field price)
+
+Else the initial close will be used.
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- get_analysis()
+Returns a dictionary with returns as values and the datetime points for each return as keys
+
+TradeAnalyzer
+class backtrader.analyzers.TradeAnalyzer()
+Provides statistics on closed trades (keeps also the count of open ones)
+
+Total Open/Closed Trades
+
+Streak Won/Lost Current/Longest
+
+ProfitAndLoss Total/Average
+
+Won/Lost Count/ Total PNL/ Average PNL / Max PNL
+
+Long/Short Count/ Total PNL / Average PNL / Max PNL
+
+Won/Lost Count/ Total PNL/ Average PNL / Max PNL
+Length (bars in the market)
+
+Total/Average/Max/Min
+
+Won/Lost Total/Average/Max/Min
+
+Long/Short Total/Average/Max/Min
+
+Won/Lost Total/Average/Max/Min
+
+NOTE: The analyzer uses an “auto”dict for the fields, which means that if no trades are executed, no statistics will be generated.
+
+In that case there will be a single field/subfield in the dictionary returned by get_analysis, namely:
+
+dictname[‘total’][‘total’] which will have a value of 0 (the field is also reachable with dot notation dictname.total.total
+Transactions
+class backtrader.analyzers.Transactions()
+This analyzer reports the transactions occurred with each an every data in the system
+
+It looks at the order execution bits to create a Position starting from 0 during each next cycle.
+
+The result is used during next to record the transactions
+
+Params:
+
+headers (default: True)
+
+Add an initial key to the dictionary holding the results with the names of the datas
+
+This analyzer was modeled to facilitate the integration with pyfolio and the header names are taken from the samples used for it:
+
+
+'date', 'amount', 'price', 'sid', 'symbol', 'value'
+- get_analysis()
+Returns a dictionary with returns as values and the datetime points for each return as keys
+
+VWR
+class backtrader.analyzers.VWR()
+Variability-Weighted Return: Better SharpeRatio with Log Returns
+
+Alias:
+
+VariabilityWeightedReturn
+See:
+
+https://www.crystalbull.com/sharpe-ratio-better-with-log-returns/
+Params:
+
+timeframe (default: None) If None then the complete return over the entire backtested period will be reported
+
+Pass TimeFrame.NoTimeFrame to consider the entire dataset with no time constraints
+
+compression (default: None)
+
+Only used for sub-day timeframes to for example work on an hourly timeframe by specifying “TimeFrame.Minutes” and 60 as compression
+
+If None then the compression of the 1st data of the system will be used
+
+tann (default: None)
+
+Number of periods to use for the annualization (normalization) of the average returns. If None, then standard t values will be used, namely:
+
+days: 252
+
+weeks: 52
+
+months: 12
+
+years: 1
+
+tau (default: 2.0)
+
+factor for the calculation (see the literature)
+
+sdev_max (default: 0.20)
+
+max standard deviation (see the literature)
+
+fund (default: None)
+
+If None the actual mode of the broker (fundmode - True/False) will be autodetected to decide if the returns are based on the total net asset value or on the fund value. See set_fundmode in the broker documentation
+
+Set it to True or False for a specific behavior
+
+- get_analysis()
+Returns a dictionary with returns as values and the datetime points for each return as keys
+
+The returned dict contains the following keys:
+
+vwr: Variability-Weighted Return
+(C) 2015-2024 Daniel Rodriguez
+
+

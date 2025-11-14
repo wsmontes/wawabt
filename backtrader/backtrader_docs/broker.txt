@@ -1,0 +1,1134 @@
+Skip to content
+logo
+Backtrader
+Broker
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Broker
+Broker - Slippage
+Broker - Cheat-On-Open
+Broker - Volume Filling - Fillers
+Position
+Trade
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Reference
+class backtrader.brokers.BackBroker()
+set_cash(cash)
+get_cash()
+get_value(datas=None, mkt=False, lever=False)
+set_eosbar(eosbar)
+set_checksubmit(checksubmit)
+set_filler(filler)
+set_coc(coc)
+set_coo(coo)
+set_int2pnl(int2pnl)
+set_fundstartval(fundstartval)
+set_slippage_perc(perc, slip_open=True, slip_limit=True, slip_match=True, slip_out=False)
+set_slippage_fixed(fixed, slip_open=True, slip_limit=True, slip_match=True, slip_out=False)
+get_orders_open(safe=False)
+getcommissioninfo(data)
+setcommission(commission=0.0, margin=None, mult=1.0, commtype=None, percabs=True, stocklike=False, interest=0.0, interest_long=False, leverage=1.0, automargin=False, name=None)
+addcommissioninfo(comminfo, name=None)
+getposition(data)
+get_fundshares()
+get_fundvalue()
+add_cash(cash)
+Broker
+Reference
+class backtrader.brokers.BackBroker()
+Broker Simulator
+
+The simulation supports different order types, checking a submitted order cash requirements against current cash, keeping track of cash and value for each iteration of cerebro and keeping the current position on different datas.
+
+cash is adjusted on each iteration for instruments like futures for
+
+
+which a price change implies in real brokers the addition/substracion of
+cash.
+Supported order types:
+
+Market: to be executed with the 1st tick of the next bar (namely the open price)
+
+Close: meant for intraday in which the order is executed with the closing price of the last bar of the session
+
+Limit: executes if the given limit price is seen during the session
+
+Stop: executes a Market order if the given stop price is seen
+
+StopLimit: sets a Limit order in motion if the given stop price is seen
+
+Because the broker is instantiated by Cerebro and there should be (mostly) no reason to replace the broker, the params are not controlled by the user for the instance. To change this there are two options:
+
+Manually create an instance of this class with the desired params and use cerebro.broker = instance to set the instance as the broker for the run execution
+
+Use the set_xxx to set the value using cerebro.broker.set_xxx where \xxx` stands for the name of the parameter to set
+
+Note
+
+cerebro.broker is a property supported by the getbroker and setbroker methods of Cerebro
+
+Params:
+
+cash (default: 10000): starting cash
+
+commission (default: CommInfoBase(percabs=True)) base commission scheme which applies to all assets
+
+checksubmit (default: True) check margin/cash before accepting an order into the system
+
+eosbar (default: False): With intraday bars consider a bar with the same time as the end of session to be the end of the session. This is not usually the case, because some bars (final auction) are produced by many exchanges for many products for a couple of minutes after the end of the session
+
+eosbar (default: False): With intraday bars consider a bar with the same time as the end of session to be the end of the session. This is not usually the case, because some bars (final auction) are produced by many exchanges for many products for a couple of minutes after the end of the session
+
+filler (default: None)
+
+A callable with signature: callable(order, price, ago)
+
+order: obviously the order in execution. This provides access to the data (and with it the ohlc and volume values), the execution type, remaining size (order.executed.remsize) and others.
+
+Please check the Order documentation and reference for things available inside an Order instance
+
+price the price at which the order is going to be executed in the ago bar
+
+ago: index meant to be used with order.data for the extraction of the ohlc and volume prices. In most cases this will be 0 but on a corner case for Close orders, this will be -1.
+
+In order to get the bar volume (for example) do: volume = order.data.voluume[ago]
+
+The callable must return the executed size (a value >= 0)
+
+The callable may of course be an object with __call__ matching the aforementioned signature
+
+With the default None orders will be completely executed in a single shot
+
+slip_perc (default: 0.0) Percentage in absolute termns (and positive) that should be used to slip prices up/down for buy/sell orders
+
+Note:
+
+0.01 is 1%
+
+0.001 is 0.1%
+
+slip_fixed (default: 0.0) Percentage in units (and positive) that should be used to slip prices up/down for buy/sell orders
+
+Note: if slip_perc is non zero, it takes precendence over this.
+
+slip_open (default: False) whether to slip prices for order execution which would specifically used the opening price of the next bar. An example would be Market order which is executed with the next available tick, i.e: the opening price of the bar.
+
+This also applies to some of the other executions, because the logic tries to detect if the opening price would match the requested price/execution type when moving to a new bar.
+
+slip_match (default: True)
+
+If True the broker will offer a match by capping slippage at high/low prices in case they would be exceeded.
+
+If False the broker will not match the order with the current prices and will try execution during the next iteration
+
+slip_limit (default: True)
+
+Limit orders, given the exact match price requested, will be matched even if slip_match is False.
+
+This option controls that behavior.
+
+If True, then Limit orders will be matched by capping prices to the limit / high/low prices
+
+If False and slippage exceeds the cap, then there will be no match
+
+slip_out (default: False)
+
+Provide slippage even if the price falls outside the high - low range.
+
+coc (default: False)
+
+Cheat-On-Close Setting this to True with set_coc enables
+
+
+matching a `Market` order to the closing price of the bar in which
+the order was issued. This is actually *cheating*, because the bar
+is *closed* and any order should first be matched against the prices
+in the next bar
+coo (default: False)
+
+Cheat-On-Open Setting this to True with set_coo enables
+
+
+matching a `Market` order to the opening price, by for example
+using a timer with `cheat` set to `True`, because such a timer
+gets executed before the broker has evaluated
+int2pnl (default: True)
+
+Assign generated interest (if any) to the profit and loss of operation that reduces a position (be it long or short). There may be cases in which this is undesired, because different strategies are competing and the interest would be assigned on a non-deterministic basis to any of them.
+
+shortcash (default: True)
+
+If True then cash will be increased when a stocklike asset is shorted and the calculated value for the asset will be negative.
+
+If False then the cash will be deducted as operation cost and the calculated value will be positive to end up with the same amount
+
+fundstartval (default: 100.0)
+
+This parameter controls the start value for measuring the performance in a fund-like way, i.e.: cash can be added and deducted increasing the amount of shares. Performance is not measured using the net asset value of the porftoflio but using the value of the fund
+
+fundmode (default: False)
+
+If this is set to True analyzers like TimeReturn can automatically calculate returns based on the fund value and not on the total net asset value
+
+set_cash(cash)
+Sets the cash parameter (alias: setcash)
+
+get_cash()
+Returns the current cash (alias: getcash)
+
+get_value(datas=None, mkt=False, lever=False)
+Returns the portfolio value of the given datas (if datas is None, then the total portfolio value will be returned (alias: getvalue)
+
+set_eosbar(eosbar)
+Sets the eosbar parameter (alias: seteosbar
+
+set_checksubmit(checksubmit)
+Sets the checksubmit parameter
+
+set_filler(filler)
+Sets a volume filler for volume filling execution
+
+set_coc(coc)
+Configure the Cheat-On-Close method to buy the close on order bar
+
+set_coo(coo)
+Configure the Cheat-On-Open method to buy the close on order bar
+
+set_int2pnl(int2pnl)
+Configure assignment of interest to profit and loss
+
+set_fundstartval(fundstartval)
+Set the starting value of the fund-like performance tracker
+
+set_slippage_perc(perc, slip_open=True, slip_limit=True, slip_match=True, slip_out=False)
+Configure slippage to be percentage based
+
+set_slippage_fixed(fixed, slip_open=True, slip_limit=True, slip_match=True, slip_out=False)
+Configure slippage to be fixed points based
+
+get_orders_open(safe=False)
+Returns an iterable with the orders which are still open (either not executed or partially executed
+
+The orders returned must not be touched.
+
+If order manipulation is needed, set the parameter safe to True
+
+getcommissioninfo(data)
+Retrieves the CommissionInfo scheme associated with the given data
+
+setcommission(commission=0.0, margin=None, mult=1.0, commtype=None, percabs=True, stocklike=False, interest=0.0, interest_long=False, leverage=1.0, automargin=False, name=None)
+This method sets a `` CommissionInfo`` object for assets managed in the broker with the parameters. Consult the reference for CommInfoBase
+
+If name is None, this will be the default for assets for which no other CommissionInfo scheme can be found
+
+addcommissioninfo(comminfo, name=None)
+Adds a CommissionInfo object that will be the default for all assets if name is None
+
+getposition(data)
+Returns the current position status (a Position instance) for the given data
+
+get_fundshares()
+Returns the current number of shares in the fund-like mode
+
+get_fundvalue()
+Returns the Fund-like share value
+
+add_cash(cash)
+Add/Remove cash to the system (use a negative value to remove)
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Broker - Slippage
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Broker
+Broker - Slippage
+Broker - Cheat-On-Open
+Broker - Volume Filling - Fillers
+Position
+Trade
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+How it works
+Configuring slippage
+BackBroker.set_slippage_perc(perc, slip_open=True, slip_limit=True, slip_match=True, slip_out=False)
+BackBroker.set_slippage_fixed(fixed, slip_open=True, slip_limit=True, slip_match=True, slip_out=False)
+Practical examples
+Slippage
+backtesting cannot guarantee real market conditions. No matter how good the market simulation is, under real market conditions slippage can happen. That means:
+
+The requested price may not be matched.
+The integrated backtesting broker supports slippage. The following parameters can be passed to the broker
+
+slip_perc (default: 0.0) Percentage in absolute termns (and positive) that should be used to slip prices up/down for buy/sell orders
+
+Note:
+
+0.01 is 1%
+
+0.001 is 0.1%
+
+slip_fixed (default: 0.0) Percentage in units (and positive) that should be used to slip prices up/down for buy/sell orders
+
+Note: if slip_perc is non zero, it takes precendence over this.
+
+slip_open (default: False) whether to slip prices for order execution which would specifically used the opening price of the next bar. An example would be Market order which is executed with the next available tick, i.e: the opening price of the bar.
+
+This also applies to some of the other executions, because the logic tries to detect if the opening price would match the requested price/execution type when moving to a new bar.
+
+slip_match (default: True)
+
+If True the broker will offer a match by capping slippage at high/low prices in case they would be exceeded.
+
+If False the broker will not match the order with the current prices and will try execution during the next iteration
+
+slip_limit (default: True)
+
+Limit orders, given the exact match price requested, will be matched even if slip_match is False.
+
+This option controls that behavior.
+
+If True, then Limit orders will be matched by capping prices to the limit / high/low prices
+
+If False and slippage exceeds the cap, then there will be no match
+
+slip_out (default: False)
+
+Provide slippage even if the price falls outside the high - low range.
+
+How it works
+In order to decide when to apply slippage the order execution type is taken into account:
+
+Close - No slippage is applied
+
+This order is matched against the close price and this price is the last one of the day. Slippage cannot happen because the order can only happen with the last tick of the session and this is a unique price with no tolerance.
+
+Market - Slippage is applied
+
+Please check the slip_open exception. Because Market orders will be matched against the opening price of the next bar.
+
+Limit - Slippage is applied following this logic
+
+If the matching price would be the opening price, then slippage is applied according to the parameter slip_open. If applied, the price will never be worse than the requested limit price
+
+If the matching price is not the limit price, slippage is applied capping at high/low. In this case slip_mlimit applies to decide if a match will be happening in case the caps are exceeded
+
+If the matching price is the limit price, then no slippage is applied
+
+Stop - once the order is triggered the same logic as for Market orders apply
+
+StopLimit - once the order is triggered the same logic as for Limit orders apply
+
+This approach tries to offer the most realistic possible approach within the limits of the simulation and available data
+
+Configuring slippage
+A broker is already instantiated by a cerebro engine for each run with the default parameters. There are two ways to alter the behavior:
+
+Use methods to configure slippage
+
+BackBroker.set_slippage_perc(perc, slip_open=True, slip_limit=True, slip_match=True, slip_out=False)
+Configure slippage to be percentage based
+
+BackBroker.set_slippage_fixed(fixed, slip_open=True, slip_limit=True, slip_match=True, slip_out=False)
+Configure slippage to be fixed points based
+
+Replace the broker as in:
+
+
+import backtrader as bt
+
+cerebro = bt.Cerebro()
+cerebro.broker = bt.brokers.BackBroker(slip_perc=0.005)  # 0.5%
+Practical examples
+The sources contain a sample which uses the order execution type Market and a long/short approach using signals. This should allow to understand the logic.
+
+A run with no slippage and an initial plot for reference later:
+
+
+$ ./slippage.py --plot
+01 2005-03-22 23:59:59 SELL Size: -1 / Price: 3040.55
+02 2005-04-11 23:59:59 BUY  Size: +1 / Price: 3088.47
+03 2005-04-11 23:59:59 BUY  Size: +1 / Price: 3088.47
+04 2005-04-19 23:59:59 SELL Size: -1 / Price: 2948.38
+05 2005-04-19 23:59:59 SELL Size: -1 / Price: 2948.38
+06 2005-05-19 23:59:59 BUY  Size: +1 / Price: 3034.88
+...
+35 2006-12-19 23:59:59 BUY  Size: +1 / Price: 4121.01
+image
+
+And the same run using slippage with a 1.5% configured:
+
+
+$ ./slippage.py --slip_perc 0.015
+01 2005-03-22 23:59:59 SELL Size: -1 / Price: 3040.55
+02 2005-04-11 23:59:59 BUY  Size: +1 / Price: 3088.47
+03 2005-04-11 23:59:59 BUY  Size: +1 / Price: 3088.47
+04 2005-04-19 23:59:59 SELL Size: -1 / Price: 2948.38
+05 2005-04-19 23:59:59 SELL Size: -1 / Price: 2948.38
+06 2005-05-19 23:59:59 BUY  Size: +1 / Price: 3034.88
+...
+35 2006-12-19 23:59:59 BUY  Size: +1 / Price: 4121.01
+There is NO CHANGE. This is the expected behavior for the scenario.
+
+Execution Type: Market
+
+And slip_open has not been set to True
+
+The Market orders are matched against the opening price of the next bar and we are not allowing the open price to be moved.
+
+A run setting slip_open to True:
+
+
+$ ./slippage.py --slip_perc 0.015 --slip_open
+01 2005-03-22 23:59:59 SELL Size: -1 / Price: 3021.66
+02 2005-04-11 23:59:59 BUY  Size: +1 / Price: 3088.47
+03 2005-04-11 23:59:59 BUY  Size: +1 / Price: 3088.47
+04 2005-04-19 23:59:59 SELL Size: -1 / Price: 2948.38
+05 2005-04-19 23:59:59 SELL Size: -1 / Price: 2948.38
+06 2005-05-19 23:59:59 BUY  Size: +1 / Price: 3055.14
+...
+35 2006-12-19 23:59:59 BUY  Size: +1 / Price: 4121.01
+And one can immediately see tht the prices HAVE MOVED. And the allocated prices are worst or equal like for operation 35. This is not a copy and paste error
+
+The open and the high on 20016-12-19 were the same.
+
+The price cannot be pushed above the high because that would mean returning a non-existent price.
+
+Of course, backtrader allows to match outide the high - low range if wished with slip_out. A run with it activated:
+
+
+$ ./slippage.py --slip_perc 0.015 --slip_open --slip_out
+01 2005-03-22 23:59:59 SELL Size: -1 / Price: 2994.94
+02 2005-04-11 23:59:59 BUY  Size: +1 / Price: 3134.80
+03 2005-04-11 23:59:59 BUY  Size: +1 / Price: 3134.80
+04 2005-04-19 23:59:59 SELL Size: -1 / Price: 2904.15
+05 2005-04-19 23:59:59 SELL Size: -1 / Price: 2904.15
+06 2005-05-19 23:59:59 BUY  Size: +1 / Price: 3080.40
+...
+35 2006-12-19 23:59:59 BUY  Size: +1 / Price: 4182.83
+A matching expression for the matched prices would be: OMG! (Oh My God!). The prices are clearly outside of the range. Suffice to look at operation 35, which has been matched at 4182.83. A quick inspection of the chart in this document shows that the asset never came close to that price.
+
+slip_match has a default of True and that means that backtrader offers a match, be it with capped or uncapped prices as seen above. Let’s disable it:
+
+
+$ ./slippage.py --slip_perc 0.015 --slip_open --no-slip_match
+01 2005-04-15 23:59:59 SELL Size: -1 / Price: 3028.10
+02 2005-05-18 23:59:59 BUY  Size: +1 / Price: 3029.40
+03 2005-06-01 23:59:59 BUY  Size: +1 / Price: 3124.03
+04 2005-10-06 23:59:59 SELL Size: -1 / Price: 3365.57
+05 2005-10-06 23:59:59 SELL Size: -1 / Price: 3365.57
+06 2005-12-01 23:59:59 BUY  Size: +1 / Price: 3499.95
+07 2005-12-01 23:59:59 BUY  Size: +1 / Price: 3499.95
+08 2006-02-28 23:59:59 SELL Size: -1 / Price: 3782.71
+09 2006-02-28 23:59:59 SELL Size: -1 / Price: 3782.71
+10 2006-05-23 23:59:59 BUY  Size: +1 / Price: 3594.68
+11 2006-05-23 23:59:59 BUY  Size: +1 / Price: 3594.68
+12 2006-11-27 23:59:59 SELL Size: -1 / Price: 3984.37
+13 2006-11-27 23:59:59 SELL Size: -1 / Price: 3984.37
+Blistering barnacles! Down to 13 from 35. The rationale:
+
+Deactivating slip_match disallows matching operations if slippage would push the matching price above the high or below the low of the bar. It seems that with the 1.5% of requested slippage, around 22 of the operations fail to be executed.
+
+The examples should have shown how the different slippage options work together.
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+
+Skip to content
+logo
+Backtrader
+Broker - Cheat-On-Open
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Broker
+Broker - Slippage
+Broker - Cheat-On-Open
+Broker - Volume Filling - Fillers
+Position
+Trade
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Trying cheat-on-open
+Conclusion
+Sample usage
+Sample source
+Cheat On Open
+Release 1.9.44.116 adds support for Cheat-On-Open. This seems to be a demanded feature for people who go all-in, having made a calculation after the close of a bar, but expecting to be matched against the open price.
+
+Such a use case fails when the opening price gaps (up or down, depending on whether buy or sell is in effect) and the cash is not enough for an all-in operation. This forces the broker to reject the operation.
+
+And although people can try to look into the future with a positive [1] index approach, this requires preloading data which is not always available.
+
+The pattern:
+
+
+cerebro = bt.Cerebro(cheat_on_open=True)
+This:
+
+Activates an extra cycle in the system which calls the methods in the strategy next_open, nextstart_open and prenext_open
+
+The decision to have an additional family of methods has been made to make a clear separation between the regular methods which operate on the basis that the prices being examined are no longer available and the future is unknown and the operation in cheating mode.
+
+This also avoids having 2 calls to the regular next method.
+
+The following holds true when inside a xxx_open method:
+
+The indicators have not been recalculated and hold the values that were last seen during the previous cycle in the equivalent xxx regular methods
+
+The broker has not yet evaluated the pending orders for the new cycle and new orders can be introduced which will be evaluated if possible.
+
+Notice that:
+
+Cerebro also has a broker_coo (default: True) parameter which tells cerebro that if cheat-on-open has been activated, it shall try to activate it also in the broker if possible.
+
+The simulation broker has a parameter named: coo and a method to set it named set_coo
+
+Trying cheat-on-open
+The sample below has a strategy with 2 different behaviors:
+
+If cheat-on-open is True, it will only operate from next_open
+
+If cheat-on-open is False, it will only operate from next
+
+In both cases the matching price must be the same
+
+If not cheating, the order is issued at the end of the previous day and will be matched with the next incoming price which is the open price
+
+If cheating, the order is issued on the same day it is executed. Because the order is issued before the broker has evaluated orders, it will also be matched with the next incoming price, the open price.
+
+This second scenario, allows calculation of exact stakes for all-in strategies, because one can directly access the current open price.
+
+In both cases
+
+The current open and close prices will be printed from next.
+Regular execution:
+
+
+$ ./cheat-on-open.py --cerebro cheat_on_open=False
+
+...
+2005-04-07 next, open 3073.4 close 3090.72
+2005-04-08 next, open 3092.07 close 3088.92
+Strat Len 68 2005-04-08 Send Buy, fromopen False, close 3088.92
+2005-04-11 Buy Executed at price 3088.47
+2005-04-11 next, open 3088.47 close 3080.6
+2005-04-12 next, open 3080.42 close 3065.18
+...
+image
+
+The order:
+
+Is issued on 2005-04-08 after the close
+
+It is executed on 2005-04-11 with the open price of 3088.47
+
+Cheating execution:
+
+
+$ ./cheat-on-open.py --cerebro cheat_on_open=True
+
+...
+2005-04-07 next, open 3073.4 close 3090.72
+2005-04-08 next, open 3092.07 close 3088.92
+2005-04-11 Send Buy, fromopen True, close 3080.6
+2005-04-11 Buy Executed at price 3088.47
+2005-04-11 next, open 3088.47 close 3080.6
+2005-04-12 next, open 3080.42 close 3065.18
+...
+image
+
+The order:
+
+Is issued on 2005-04-11 before the open
+
+It is executed on 2005-04-11 with the open price of 3088.47
+
+And the overall result as seen on the chart is also the same.
+
+Conclusion
+Cheating on the open allows issuing orders before the open which can for example allow the exact calculation of stakes for all-in scenarios.
+
+Sample usage
+
+$ ./cheat-on-open.py --help
+usage: cheat-on-open.py [-h] [--data0 DATA0] [--fromdate FROMDATE]
+                        [--todate TODATE] [--cerebro kwargs] [--broker kwargs]
+                        [--sizer kwargs] [--strat kwargs] [--plot [kwargs]]
+
+Cheat-On-Open Sample
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --data0 DATA0        Data to read in (default:
+                       ../../datas/2005-2006-day-001.txt)
+  --fromdate FROMDATE  Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --todate TODATE      Date[time] in YYYY-MM-DD[THH:MM:SS] format (default: )
+  --cerebro kwargs     kwargs in key=value format (default: )
+  --broker kwargs      kwargs in key=value format (default: )
+  --sizer kwargs       kwargs in key=value format (default: )
+  --strat kwargs       kwargs in key=value format (default: )
+  --plot [kwargs]      kwargs in key=value format (default: )
+Sample source
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+
+
+class St(bt.Strategy):
+    params = dict(
+        periods=[10, 30],
+        matype=bt.ind.SMA,
+    )
+
+    def __init__(self):
+        self.cheating = self.cerebro.p.cheat_on_open
+        mas = [self.p.matype(period=x) for x in self.p.periods]
+        self.signal = bt.ind.CrossOver(*mas)
+        self.order = None
+
+    def notify_order(self, order):
+        if order.status != order.Completed:
+            return
+
+        self.order = None
+        print('{} {} Executed at price {}'.format(
+            bt.num2date(order.executed.dt).date(),
+            'Buy' * order.isbuy() or 'Sell', order.executed.price)
+        )
+
+    def operate(self, fromopen):
+        if self.order is not None:
+            return
+        if self.position:
+            if self.signal < 0:
+                self.order = self.close()
+        elif self.signal > 0:
+            print('{} Send Buy, fromopen {}, close {}'.format(
+                self.data.datetime.date(),
+                fromopen, self.data.close[0])
+            )
+            self.order = self.buy()
+
+    def next(self):
+        print('{} next, open {} close {}'.format(
+            self.data.datetime.date(),
+            self.data.open[0], self.data.close[0])
+        )
+
+        if self.cheating:
+            return
+        self.operate(fromopen=False)
+
+    def next_open(self):
+        if not self.cheating:
+            return
+        self.operate(fromopen=True)
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+
+    # Data feed kwargs
+    kwargs = dict()
+
+    # Parse from/to-date
+    dtfmt, tmfmt = '%Y-%m-%d', 'T%H:%M:%S'
+    for a, d in ((getattr(args, x), x) for x in ['fromdate', 'todate']):
+        if a:
+            strpfmt = dtfmt + tmfmt * ('T' in a)
+            kwargs[d] = datetime.datetime.strptime(a, strpfmt)
+
+    # Data feed
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **kwargs)
+    cerebro.adddata(data0)
+
+    # Broker
+    cerebro.broker = bt.brokers.BackBroker(**eval('dict(' + args.broker + ')'))
+
+    # Sizer
+    cerebro.addsizer(bt.sizers.FixedSize, **eval('dict(' + args.sizer + ')'))
+
+    # Strategy
+    cerebro.addstrategy(St, **eval('dict(' + args.strat + ')'))
+
+    # Execute
+    cerebro.run(**eval('dict(' + args.cerebro + ')'))
+
+    if args.plot:  # Plot if requested to
+        cerebro.plot(**eval('dict(' + args.plot + ')'))
+
+
+def parse_args(pargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=(
+            'Cheat-On-Open Sample'
+        )
+    )
+
+    parser.add_argument('--data0', default='../../datas/2005-2006-day-001.txt',
+                        required=False, help='Data to read in')
+
+    # Defaults for dates
+    parser.add_argument('--fromdate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--todate', required=False, default='',
+                        help='Date[time] in YYYY-MM-DD[THH:MM:SS] format')
+
+    parser.add_argument('--cerebro', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--broker', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--sizer', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--strat', required=False, default='',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    parser.add_argument('--plot', required=False, default='',
+                        nargs='?', const='{}',
+                        metavar='kwargs', help='kwargs in key=value format')
+
+    return parser.parse_args(pargs)
+
+
+if __name__ == '__main__':
+    runstrat()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Broker - Volume Filling - Fillers
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Broker
+Broker - Slippage
+Broker - Cheat-On-Open
+Broker - Volume Filling - Fillers
+Position
+Trade
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+The fillers signature
+Adding a Filler to the broker
+The sample
+Reference
+class backtrader.fillers.FixedSize()
+class backtrader.fillers.FixedBarPerc()
+class backtrader.fillers.BarPointPerc()
+Fillers
+The backtrader broker simulation has a default strategy when it comes to using volume for order execution:
+
+Ignore volume
+This is based on 2 premises:
+
+Trade in markets liquid enough to fully absorb buy/sell orders in one go
+
+Real volume matching requires a real wolrd
+
+A quick example is a Fill or Kill order. Even down to the tick resolution and with enough volume for a fill, the backtrader broker cannot know how many extra actors happen to be in the market to discriminate if such an order would be or would not be matched to stick to the Fill part or if the order should be Kill
+
+But the broker can accept Volume Fillers which determine how much of the volume at a given point in time has to be used for order matching.
+
+The fillers signature
+A filler in the backtrader ecosystem can be any callable which matches the following signature:
+
+
+callable(order, price, ago)
+Where:
+
+order is the order which is going to be executed
+
+This object gives access to the data object which is the target of the operation, creation sizes/prices, execution prices/sizes/remaining sizes and other details
+
+price at which the order is going to be executed
+
+ago is the index to the data in the order in which to look for the volume and price elements
+
+In almost all cases this will be 0 (current point in time) but in a corner case to cover Close orders this may be -1
+
+To for example access the bar volume do:
+
+
+barvolume = order.data.volume[ago]
+The callable can be a function or for example an instance of a class supporting the __call__ method, like in:
+
+
+class MyFiller(object):
+    def __call__(self, order, price, ago):
+        pass
+Adding a Filler to the broker
+The most straightforward method is to use the set_filler:
+
+
+import backtrader as bt
+
+cerebro = Cerebro()
+cerebro.broker.set_filler(bt.broker.fillers.FixedSize())
+The second choice is to completely replace the broker, although this is probably only meant for subclasses of BrokerBack which have rewritten portions of the functionality:
+
+
+import backtrader as bt
+
+cerebro = Cerebro()
+filler = bt.broker.fillers.FixedSize()
+newbroker = bt.broker.BrokerBack(filler=filler)
+cerebro.broker = newbroker
+The sample
+The backtrader sources contain a sample named volumefilling which allows to test some of the integrated fillers (initially all)
+
+Reference
+class backtrader.fillers.FixedSize()
+Returns the execution size for a given order using a percentage of the volume in a bar.
+
+This percentage is set with the parameter perc
+
+Params:
+
+size (default: None) maximum size to be executed. The actual volume of the bar at execution time is also a limit if smaller than the size
+
+If the value of this parameter evaluates to False, the entire volume of the bar will be used to match the order
+
+class backtrader.fillers.FixedBarPerc()
+Returns the execution size for a given order using a percentage of the volume in a bar.
+
+This percentage is set with the parameter perc
+
+Params:
+
+perc (default: 100.0) (valied values: 0.0 - 100.0)
+
+Percentage of the volume bar to use to execute an order
+
+class backtrader.fillers.BarPointPerc()
+Returns the execution size for a given order. The volume will be distributed uniformly in the range high-low using minmov to partition.
+
+From the allocated volume for the given price, the perc percentage will be used
+
+Params:
+
+minmov (default: 0.01)
+
+Minimum price movement. Used to partition the range high-low to proportionally distribute the volume amongst possible prices
+
+perc (default: 100.0) (valied values: 0.0 - 100.0)
+
+Percentage of the volume allocated to the order execution price to use for matching
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Position
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Broker
+Broker - Slippage
+Broker - Cheat-On-Open
+Broker - Volume Filling - Fillers
+Position
+Trade
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Reference: Position
+class backtrader.position.Position(size=0, price=0.0)
+Position
+Position on an asset is usually checked from within a Strategy with:
+
+position (a property) or getposition(data=None, broker=None)
+
+Which will return the position on datas[0] of the strategy in the default broker provided by cerebro
+
+A position is simply the indication of:
+
+An asset is being held with size
+
+The average price is price
+
+It serves as a status and can for example be used in deciding if an order has to be issued or not (example: long positions are only entered if no position is open)
+
+Reference: Position
+class backtrader.position.Position(size=0, price=0.0)
+Keeps and updates the size and price of a position. The object has no relationship to any asset. It only keeps size and price.
+
+Member Attributes:
+
+
+* size (int): current size of the position
+
+* price (float): current price of the position
+The Position instances can be tested using len(position) to see if size is not null
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Trade
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Broker
+Broker - Slippage
+Broker - Cheat-On-Open
+Broker - Volume Filling - Fillers
+Position
+Trade
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Reference: Trade
+class backtrader.trade.Trade(data=None, tradeid=0, historyon=False, size=0, price=0.0, value=0.0, commission=0.0)
+Trade
+Definition of a trade:
+
+A Trade is open when the a position in a instrument goes from 0 to a size X which may positive/negative for long/short positions)
+
+A Trade is closed when a position goes from X to 0.
+
+The followig two actions:
+
+positive to negative
+
+negative to positive
+
+Are actually seen as:
+
+A trade has been closed (position went to 0 from X)
+
+A new trade has been open (position goes from 0 to Y)
+
+Trades are only informative and have no user callable methods.
+
+Reference: Trade
+class backtrader.trade.Trade(data=None, tradeid=0, historyon=False, size=0, price=0.0, value=0.0, commission=0.0)
+Keeps track of the life of an trade: size, price, commission (and value?)
+
+An trade starts at 0 can be increased and reduced and can be considered closed if it goes back to 0.
+
+The trade can be long (positive size) or short (negative size)
+
+An trade is not meant to be reversed (no support in the logic for it)
+
+Member Attributes:
+
+ref: unique trade identifier
+
+status (int): one of Created, Open, Closed
+
+tradeid: grouping tradeid passed to orders during creation The default in orders is 0
+
+size (int): current size of the trade
+
+price (float): current price of the trade
+
+value (float): current value of the trade
+
+commission (float): current accumulated commission
+
+pnl (float): current profit and loss of the trade (gross pnl)
+
+pnlcomm (float): current profit and loss of the trade minus commission (net pnl)
+
+isclosed (bool): records if the last update closed (set size to null the trade
+
+isopen (bool): records if any update has opened the trade
+
+justopened (bool): if the trade was just opened
+
+baropen (int): bar in which this trade was opened
+
+dtopen (float): float coded datetime in which the trade was opened
+
+Use method open_datetime to get a Python datetime.datetime or use the platform provided num2date method
+barclose (int): bar in which this trade was closed
+
+dtclose (float): float coded datetime in which the trade was closed
+
+Use method close_datetime to get a Python datetime.datetime or use the platform provided num2date method
+barlen (int): number of bars this trade was open
+
+historyon (bool): whether history has to be recorded
+
+history (list): holds a list updated with each “update” event containing the resulting status and parameters used in the update
+
+The first entry in the history is the Opening Event The last entry in the history is the Closing Event
+
+(C) 2015-2024 Daniel Rodriguez
+
+

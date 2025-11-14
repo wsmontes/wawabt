@@ -1,0 +1,1227 @@
+Skip to content
+logo
+Backtrader
+Commission Schemes
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Commission Schemes
+Commission Schemes - Extending
+Commission Schemes - Custom Schemes
+Commission Schemes - Credit Interest
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Agnosticity
+Using the broker shortcuts
+The meaning of the setcommission parameters
+Two examples now: stocks vs futures
+Creating permanent Commission schemes
+Now a “real” comparison with a SMA Crossover
+Commissions for futures
+Commissions for stocks
+The code
+Reference
+class backtrader.CommInfoBase()
+- ``_stocklike``()
+- ``_commtype``()
+This two are used internally instead of the declared params to enable the()
+compatibility check described above for the legacy ``CommissionInfo``()
+object()
+class backtrader.CommissionInfo()
+get_leverage()
+getsize(price, cash)
+getoperationcost(size, price)
+getvaluesize(size, price)
+getvalue(position, price)
+get_margin(price)
+getcommission(size, price)
+_getcommission(size, price, pseudoexec)
+profitandloss(size, price, newprice)
+cashadjust(size, price, newprice)
+get_credit_interest(data, pos, dt)
+_get_credit_interest(data, size, price, days, dt0, dt1)
+Commissions: Stocks vs Futures
+Agnosticity
+Before going forward let’s remember that backtrader tries to remain agnostic as to what the data represents. Different commission schemes can be applied to the same data set.
+
+Let’s see how it can be done.
+
+Using the broker shortcuts
+This keeps the end user away from CommissionInfo objects because a commission scheme can be created/set with a single function call. Within the regular cerebro creation/set-up process, just add a call to setcommission over the broker member attribute. The following call sets a usual commission scheme for Eurostoxx50 futures when working with Interactive Brokers:
+
+
+cerebro.broker.setcommission(commission=2.0, margin=2000.0, mult=10.0)
+Since most users will usually just test a single instrument, that’s all that’s down to it. If you have given a name to your data feed, because several instruments are being considered simultaneously on a chart, this call can be slightly extended to look as follows:
+
+
+cerebro.broker.setcommission(commission=2.0, margin=2000.0, mult=10.0, name='Eurostoxxx50')
+In this case this on-the-fly commission scheme will only applied to instruments whose name matches Eurostoxx50.
+
+The meaning of the setcommission parameters
+commission (default: 0.0)
+
+Monetary units in absolute or percentage terms each action costs.
+
+In the above example it is 2.0 euros per contract for a buy and again 2.0 euros per contract for a sell.
+
+The important issue here is when to use absolute or percentage values.
+
+If margin evaluates to False (it is False, 0 or None for example) then it will be considered that commission expresses a percentage of the price times size operatin value
+
+If margin is something else, it is considered the operations are happenning on a futures like intstrument and commission is a fixed price per size contracts
+
+margin (default: None)
+
+Margin money needed when operating with futures like instruments. As expressed above
+
+If a no margin is set, the commission will be understood to be indicated in percentage and applied to price * size components of a buy or sell operation
+
+If a margin is set, the commission will be understood to be a fixed value which is multiplied by the size component of buy or sell operation
+
+mult (default: 1.0)
+
+For future like instruments this determines the multiplicator to apply to profit and loss calculations.
+
+This is what makes futures attractive and risky at the same time.
+
+name (default: None)
+
+Limit the application of the commission scheme to instruments matching name
+
+This can be set during the creation of a data feed.
+
+If left unset, the scheme will apply to any data present in the system.
+
+Two examples now: stocks vs futures
+The futures example from above:
+
+
+cerebro.broker.setcommission(commission=2.0, margin=2000.0, mult=10.0)
+A example for stocks:
+
+
+cerebro.broker.setcommission(commission=0.005)  # 0.5% of the operation value
+Note
+
+The 2nd syntax doesn’t set margin and mult and backtrader attempts a smart approach by considering the commission to be % based.
+
+To fully specify commission schemes, a subclass of CommissionInfo needs to be created
+
+Creating permanent Commission schemes
+A more permanent commission scheme can be created by working directly with CommissionInfo classes. The user could choose to have this definition somewhere:
+
+
+import backtrader as bt
+
+commEurostoxx50 = bt.CommissionInfo(commission=2.0, margin=2000.0, mult=10.0)
+To later apply it in another Python module with addcommissioninfo:
+
+
+from mycomm import commEurostoxx50
+
+...
+
+cerebro.broker.addcommissioninfo(commEuroStoxx50, name='Eurostoxxx50')
+CommissionInfo is an object which uses a params declaration just like other objects in the backtrader environment. As such the above can be also expressed as:
+
+
+import backtrader as bt
+
+class CommEurostoxx50(bt.CommissionInfo):
+    params = dict(commission=2.0, margin=2000.0, mult=10.0)
+And later:
+
+
+from mycomm import CommEurostoxx50
+
+...
+
+cerebro.broker.addcommissioninfoCommEuroStoxx50(), name='Eurostoxxx50')
+Now a “real” comparison with a SMA Crossover
+Using a SimpleMovingAverage crossover as the entry/exit signal the same data set is going to be tested with a futures like commission scheme and then with a stocks like one.
+
+Note
+
+Futures positions could also not only be given the enter/exit behavior but a reversal behavior on each occassion. But this example is about comparing the commission schemes.
+
+The code (see at the bottom for the full strategy) is the same and the scheme can be chosen before the strategy is defined.
+
+
+futures_like = True
+
+if futures_like:
+    commission, margin, mult = 2.0, 2000.0, 10.0
+else:
+    commission, margin, mult = 0.005, None, 1
+Just set futures_like to false to run with the stocks like scheme.
+
+Some logging code has been added to evaluate the impact of the differrent commission schemes. Let’s concentrate on just the 2 first operations.
+
+For futures:
+
+
+2006-03-09, BUY CREATE, 3757.59
+2006-03-10, BUY EXECUTED, Price: 3754.13, Cost: 2000.00, Comm 2.00
+2006-04-11, SELL CREATE, 3788.81
+2006-04-12, SELL EXECUTED, Price: 3786.93, Cost: 2000.00, Comm 2.00
+2006-04-12, OPERATION PROFIT, GROSS 328.00, NET 324.00
+2006-04-20, BUY CREATE, 3860.00
+2006-04-21, BUY EXECUTED, Price: 3863.57, Cost: 2000.00, Comm 2.00
+2006-04-28, SELL CREATE, 3839.90
+2006-05-02, SELL EXECUTED, Price: 3839.24, Cost: 2000.00, Comm 2.00
+2006-05-02, OPERATION PROFIT, GROSS -243.30, NET -247.30
+For stocks:
+
+
+2006-03-09, BUY CREATE, 3757.59
+2006-03-10, BUY EXECUTED, Price: 3754.13, Cost: 3754.13, Comm 18.77
+2006-04-11, SELL CREATE, 3788.81
+2006-04-12, SELL EXECUTED, Price: 3786.93, Cost: 3786.93, Comm 18.93
+2006-04-12, OPERATION PROFIT, GROSS 32.80, NET -4.91
+2006-04-20, BUY CREATE, 3860.00
+2006-04-21, BUY EXECUTED, Price: 3863.57, Cost: 3863.57, Comm 19.32
+2006-04-28, SELL CREATE, 3839.90
+2006-05-02, SELL EXECUTED, Price: 3839.24, Cost: 3839.24, Comm 19.20
+2006-05-02, OPERATION PROFIT, GROSS -24.33, NET -62.84
+The 1st operation has the following prices:
+
+BUY (Execution) -> 3754.13 / SELL (Execution) -> 3786.93
+
+Futures Profit & Loss (with commission): 324.0
+
+Stocks Profit & Loss (with commission): -4.91
+
+Hey!! Commission has fully eaten up any profit on the stocks operation but has only meant a small dent to the futures one.
+
+The 2nd operation:
+
+BUY (Execution) -> 3863.57 / SELL (Execution) -> 3389.24
+
+Futures Profit & Loss (with commission): -247.30
+
+Stocks Profit & Loss (with commission): -62.84
+
+The bite has been sensibly larger for this negative operation with futures
+
+But:
+
+Futures accumulated net profit & loss: 324.00 + (-247.30) = 76.70
+
+Stocks accumulated net profit & loss: (-4.91) + (-62.84) = -67.75
+
+The accumulated effect can be seen on the charts below, where it can also be seen that at the end of the full year, futures have produced a larger profit, but have also suffered a larger drawdown (were deeper underwater)
+
+But the important thing: whether futures or stocks … it can be backtested.
+
+Commissions for futures
+image
+
+Commissions for stocks
+image
+
+The code
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import backtrader as bt
+import backtrader.feeds as btfeeds
+import backtrader.indicators as btind
+
+
+futures_like = True
+
+if futures_like:
+    commission, margin, mult = 2.0, 2000.0, 10.0
+else:
+    commission, margin, mult = 0.005, None, 1
+
+
+class SMACrossOver(bt.Strategy):
+    def log(self, txt, dt=None):
+        ''' Logging function fot this strategy'''
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def notify(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            # Buy/Sell order submitted/accepted to/by broker - Nothing to do
+            return
+
+        # Check if an order has been completed
+        # Attention: broker could reject order if not enougth cash
+        if order.status in [order.Completed, order.Canceled, order.Margin]:
+            if order.isbuy():
+                self.log(
+                    'BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                    (order.executed.price,
+                     order.executed.value,
+                     order.executed.comm))
+
+                self.buyprice = order.executed.price
+                self.buycomm = order.executed.comm
+                self.opsize = order.executed.size
+            else:  # Sell
+                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+
+                gross_pnl = (order.executed.price - self.buyprice) * \
+                    self.opsize
+
+                if margin:
+                    gross_pnl *= mult
+
+                net_pnl = gross_pnl - self.buycomm - order.executed.comm
+                self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' %
+                         (gross_pnl, net_pnl))
+
+    def __init__(self):
+        sma = btind.SMA(self.data)
+        # > 0 crossing up / < 0 crossing down
+        self.buysell_sig = btind.CrossOver(self.data, sma)
+
+    def next(self):
+        if self.buysell_sig > 0:
+            self.log('BUY CREATE, %.2f' % self.data.close[0])
+            self.buy()  # keep order ref to avoid 2nd orders
+
+        elif self.position and self.buysell_sig < 0:
+            self.log('SELL CREATE, %.2f' % self.data.close[0])
+            self.sell()
+
+
+if __name__ == '__main__':
+    # Create a cerebro entity
+    cerebro = bt.Cerebro()
+
+    # Add a strategy
+    cerebro.addstrategy(SMACrossOver)
+
+    # Create a Data Feed
+    datapath = ('../../datas/2006-day-001.txt')
+    data = bt.feeds.BacktraderCSVData(dataname=datapath)
+
+    # Add the Data Feed to Cerebro
+    cerebro.adddata(data)
+
+    # set commission scheme -- CHANGE HERE TO PLAY
+    cerebro.broker.setcommission(
+        commission=commission, margin=margin, mult=mult)
+
+    # Run over everything
+    cerebro.run()
+
+    # Plot the result
+    cerebro.plot()
+Reference
+class backtrader.CommInfoBase()
+Base Class for the Commission Schemes.
+
+Params:
+
+commission (def: 0.0): base commission value in percentage or monetary units
+
+mult (def 1.0): multiplier applied to the asset for value/profit
+
+margin (def: None): amount of monetary units needed to open/hold an operation. It only applies if the final _stocklike attribute in the class is set to False
+
+automargin (def: False): Used by the method get_margin to automatically calculate the margin/guarantees needed with the following policy
+
+Use param margin if param automargin evaluates to False
+
+Use param mult and use mult * price if automargin < 0
+
+Use param automargin and use automargin * price if automargin > 0
+
+commtype (def: None): Supported values are CommInfoBase.COMM_PERC (commission to be understood as %) and CommInfoBase.COMM_FIXED (commission to be understood as monetary units)
+
+The default value of None is a supported value to retain compatibility with the legacy CommissionInfo object. If commtype is set to None, then the following applies:
+
+margin is None: Internal _commtype is set to COMM_PERC and _stocklike is set to True (Operating %-wise with Stocks)
+
+margin is not None: _commtype set to COMM_FIXED and _stocklike set to False (Operating with fixed rount-trip commission with Futures)
+
+If this param is set to something else than None, then it will be passed to the internal _commtype attribute and the same will be done with the param stocklike and the internal attribute _stocklike
+
+stocklike (def: False): Indicates if the instrument is Stock-like or Futures-like (see the commtype discussion above)
+
+percabs (def: False): when commtype is set to COMM_PERC, whether the parameter commission has to be understood as XX% or 0.XX
+
+If this param is True: 0.XX If this param is False: XX%
+
+interest (def: 0.0)
+
+If this is non-zero, this is the yearly interest charged for holding a short selling position. This is mostly meant for stock short-selling
+
+The formula: days * price * abs(size) * (interest / 365)
+
+It must be specified in absolute terms: 0.05 -> 5%
+
+Note
+
+the behavior can be changed by overriding the method: _get_credit_interest
+
+interest_long (def: False)
+
+Some products like ETFs get charged on interest for short and long positions. If ths is True and interest is non-zero the interest will be charged on both directions
+
+leverage (def: 1.0)
+
+Amount of leverage for the asset with regards to the needed cash
+
+- ``_stocklike``()
+Final value to use for Stock-like/Futures-like behavior
+
+- ``_commtype``()
+Final value to use for PERC vs FIXED commissions
+
+This two are used internally instead of the declared params to enable the()
+compatibility check described above for the legacy ``CommissionInfo``()
+object()
+class backtrader.CommissionInfo()
+Base Class for the actual Commission Schemes.
+
+CommInfoBase was created to keep suppor for the original, incomplete, support provided by backtrader. New commission schemes derive from this class which subclasses CommInfoBase.
+
+The default value of percabs is also changed to True
+
+Params:
+
+percabs (def: True): when commtype is set to COMM_PERC, whether the parameter commission has to be understood as XX% or 0.XX
+
+If this param is True: 0.XX If this param is False: XX%
+
+get_leverage()
+Returns the level of leverage allowed for this comission scheme
+
+getsize(price, cash)
+Returns the needed size to meet a cash operation at a given price
+
+getoperationcost(size, price)
+Returns the needed amount of cash an operation would cost
+
+getvaluesize(size, price)
+Returns the value of size for given a price. For future-like objects it is fixed at size * margin
+
+getvalue(position, price)
+Returns the value of a position given a price. For future-like objects it is fixed at size * margin
+
+get_margin(price)
+Returns the actual margin/guarantees needed for a single item of the asset at the given price. The default implementation has this policy:
+
+Use param margin if param automargin evaluates to False
+
+Use param mult, i.e. mult * price if automargin < 0
+
+Use param automargin, i.e. automargin * price if automargin > 0
+
+getcommission(size, price)
+Calculates the commission of an operation at a given price
+
+_getcommission(size, price, pseudoexec)
+Calculates the commission of an operation at a given price
+
+pseudoexec: if True the operation has not yet been executed
+
+profitandloss(size, price, newprice)
+Return actual profit and loss a position has
+
+cashadjust(size, price, newprice)
+Calculates cash adjustment for a given price difference
+
+get_credit_interest(data, pos, dt)
+Calculates the credit due for short selling or product specific
+
+_get_credit_interest(data, size, price, days, dt0, dt1)
+This method returns the cost in terms of credit interest charged by the broker.
+
+In the case of size > 0 this method will only be called if the parameter to the class interest_long is True
+
+The formulat for the calculation of the credit interest rate is:
+
+The formula: days * price * abs(size) * (interest / 365)
+
+Params:
+
+
+* `data`: data feed for which interest is charged
+
+* `size`: current position size. > 0 for long positions and < 0 for
+  short positions (this parameter will not be `0`)
+
+* `price`: current position price
+
+* `days`: number of days elapsed since last credit calculation
+  (this is (dt0 - dt1).days)
+
+* `dt0`: (datetime.datetime) current datetime
+
+* `dt1`: (datetime.datetime) datetime of previous calculation
+dt0 and dt1 are not used in the default implementation and are provided as extra input for overridden methods
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Commission Schemes - Extending
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Commission Schemes
+Commission Schemes - Extending
+Commission Schemes - Custom Schemes
+Commission Schemes - Credit Interest
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Commissions for futures (fixed and with margin)
+Commissions for stocks (perc and withoout margin)
+Commissions for futures (perc and with margin)
+The code for the sample
+Extending Commissions
+Commissions and asociated functionality were managed by a single class CommissionInfo which was mostly instantiated by calling broker.setcommission.
+
+The concept was limited to futures with margin and a fixed commission per contract and stocks with a price/size percentage based commission. Not the most flexible of schemes even if it has served its purpose.
+
+A request for enhancement on GitHub #29 led to some rework in order to:
+
+Keep CommissionInfo and broker.setcommission compatible with the original behavior
+
+Do some clean up of the code
+
+Make the Commission scheme flexible to support the enhancement request and further possibilities
+
+The actual work before getting to the sample
+
+
+class CommInfoBase(with_metaclass(MetaParams)):
+    COMM_PERC, COMM_FIXED = range(2)
+
+    params = (
+        ('commission', 0.0), ('mult', 1.0), ('margin', None),
+        ('commtype', None),
+        ('stocklike', False),
+        ('percabs', False),
+    )
+A base class for CommissionInfo has been introduced which add new parameters to the mix:
+
+commtype (default: None)
+
+This is the key to compatibility. If the value is None, the behavior of the CommissionInfo object and broker.setcommission will work as before. Being that:
+
+If margin is set then the commission scheme is for futures with a fixed commission per contract
+
+If margin is not set, the commission scheme is for stocks with a percentage based approach
+
+If the value is COMM_PERC or COMM_FIXED (or any other from derived classes) this obviously decides if the commission if fixed or percent based
+
+stocklike (default: False)
+
+As explained above, the actual behavior in the old CommissionInfo object is determined by the parameter margin
+
+As above if commtype is set to something else than None, then this value indicates whether the asset is a futures-like asset (margin will be used and bar based cash adjustment will be performed9 or else this a stocks-like asset
+
+percabs (default: False)
+
+If False then the percentage must be passed in relative terms (xx%)
+
+If True the percentage has to be passed as an absolute value (0.xx)
+
+CommissionInfo is subclassed from CommInfoBase changing the default value of this parameter to True to keep the compatible behavior
+
+All these parameters can also be used in broker.setcommission which now looks like this:
+
+
+def setcommission(self,
+                  commission=0.0, margin=None, mult=1.0,
+                  commtype=None, percabs=True, stocklike=False,
+                  name=None):
+Notice the following:
+
+percabs is True to keep the behavior compatible with the old call as mentioned above for the CommissionInfo object
+The old sample to test commissions-schemes has been reworked to support command line arguments and the new behavior. The usage help:
+
+
+$ ./commission-schemes.py --help
+usage: commission-schemes.py [-h] [--data DATA] [--fromdate FROMDATE]
+                             [--todate TODATE] [--stake STAKE]
+                             [--period PERIOD] [--cash CASH] [--comm COMM]
+                             [--mult MULT] [--margin MARGIN]
+                             [--commtype {none,perc,fixed}] [--stocklike]
+                             [--percrel] [--plot] [--numfigs NUMFIGS]
+
+Commission schemes
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data DATA, -d DATA  data to add to the system (default:
+                        ../../datas/2006-day-001.txt)
+  --fromdate FROMDATE, -f FROMDATE
+                        Starting date in YYYY-MM-DD format (default:
+                        2006-01-01)
+  --todate TODATE, -t TODATE
+                        Starting date in YYYY-MM-DD format (default:
+                        2006-12-31)
+  --stake STAKE         Stake to apply in each operation (default: 1)
+  --period PERIOD       Period to apply to the Simple Moving Average (default:
+                        30)
+  --cash CASH           Starting Cash (default: 10000.0)
+  --comm COMM           Commission factor for operation, either apercentage or
+                        a per stake unit absolute value (default: 2.0)
+  --mult MULT           Multiplier for operations calculation (default: 10)
+  --margin MARGIN       Margin for futures-like operations (default: 2000.0)
+  --commtype {none,perc,fixed}
+                        Commission - choose none for the old CommissionInfo
+                        behavior (default: none)
+  --stocklike           If the operation is for stock-like assets orfuture-
+                        like assets (default: False)
+  --percrel             If perc is expressed in relative xx{'const': True,
+                        'help': u'If perc is expressed in relative xx%
+                        ratherthan absolute value 0.xx', 'option_strings': [u'
+                        --percrel'], 'dest': u'percrel', 'required': False,
+                        'nargs': 0, 'choices': None, 'default': False, 'prog':
+                        'commission-schemes.py', 'container':
+                        <argparse._ArgumentGroup object at
+                        0x0000000007EC9828>, 'type': None, 'metavar':
+                        None}atherthan absolute value 0.xx (default: False)
+  --plot, -p            Plot the read data (default: False)
+  --numfigs NUMFIGS, -n NUMFIGS
+                        Plot using numfigs figures (default: 1)
+Let’s do some runs to recreate the original behavior of the original commission schemes posts.
+
+Commissions for futures (fixed and with margin)
+The execution and chart:
+
+
+$ ./commission-schemes.py --comm 2.0 --margin 2000.0 --mult 10 --plot
+image
+
+And the output showing a fixed commission of 2.0 monetary units (default stake is 1):
+
+
+2006-03-09, BUY CREATE, 3757.59
+2006-03-10, BUY EXECUTED, Price: 3754.13, Cost: 2000.00, Comm 2.00
+2006-04-11, SELL CREATE, 3788.81
+2006-04-12, SELL EXECUTED, Price: 3786.93, Cost: 2000.00, Comm 2.00
+2006-04-12, TRADE PROFIT, GROSS 328.00, NET 324.00
+...
+Commissions for stocks (perc and withoout margin)
+The execution and chart:
+
+
+$ ./commission-schemes.py --comm 0.005 --margin 0 --mult 1 --plot
+image
+
+To improve readability a relative % value can be used:
+
+
+$ ./commission-schemes.py --percrel --comm 0.5 --margin 0 --mult 1 --plot
+Now 0.5 means directly 0.5%
+
+Being the output in both cases:
+
+
+2006-03-09, BUY CREATE, 3757.59
+2006-03-10, BUY EXECUTED, Price: 3754.13, Cost: 3754.13, Comm 18.77
+2006-04-11, SELL CREATE, 3788.81
+2006-04-12, SELL EXECUTED, Price: 3786.93, Cost: 3754.13, Comm 18.93
+2006-04-12, TRADE PROFIT, GROSS 32.80, NET -4.91
+...
+Commissions for futures (perc and with margin)
+Using the new parameters, futures on a perc based scheme:
+
+
+$ ./commission-schemes.py --commtype perc --percrel --comm 0.5 --margin 2000 --mult 10 --plot
+image
+
+It should come to no surprise that by changing the commission … the final result has changed
+
+The output shows that the commission is variable now:
+
+
+2006-03-09, BUY CREATE, 3757.59
+2006-03-10, BUY EXECUTED, Price: 3754.13, Cost: 2000.00, Comm 18.77
+2006-04-11, SELL CREATE, 3788.81
+2006-04-12, SELL EXECUTED, Price: 3786.93, Cost: 2000.00, Comm 18.93
+2006-04-12, TRADE PROFIT, GROSS 328.00, NET 290.29
+...
+Being in the previous run set a 2.0 monetary units (for the default stake of 1)
+
+Another post will details the new classes and the implementation of a homme cooked commission scheme.
+
+The code for the sample
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import argparse
+import datetime
+
+import backtrader as bt
+import backtrader.feeds as btfeeds
+import backtrader.indicators as btind
+
+
+class SMACrossOver(bt.Strategy):
+    params = (
+        ('stake', 1),
+        ('period', 30),
+    )
+
+    def log(self, txt, dt=None):
+        ''' Logging function fot this strategy'''
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            # Buy/Sell order submitted/accepted to/by broker - Nothing to do
+            return
+
+        # Check if an order has been completed
+        # Attention: broker could reject order if not enougth cash
+        if order.status in [order.Completed, order.Canceled, order.Margin]:
+            if order.isbuy():
+                self.log(
+                    'BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                    (order.executed.price,
+                     order.executed.value,
+                     order.executed.comm))
+            else:  # Sell
+                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+
+    def notify_trade(self, trade):
+        if trade.isclosed:
+            self.log('TRADE PROFIT, GROSS %.2f, NET %.2f' %
+                     (trade.pnl, trade.pnlcomm))
+
+    def __init__(self):
+        sma = btind.SMA(self.data, period=self.p.period)
+        # > 0 crossing up / < 0 crossing down
+        self.buysell_sig = btind.CrossOver(self.data, sma)
+
+    def next(self):
+        if self.buysell_sig > 0:
+            self.log('BUY CREATE, %.2f' % self.data.close[0])
+            self.buy(size=self.p.stake)  # keep order ref to avoid 2nd orders
+
+        elif self.position and self.buysell_sig < 0:
+            self.log('SELL CREATE, %.2f' % self.data.close[0])
+            self.sell(size=self.p.stake)
+
+
+def runstrategy():
+    args = parse_args()
+
+    # Create a cerebro
+    cerebro = bt.Cerebro()
+
+    # Get the dates from the args
+    fromdate = datetime.datetime.strptime(args.fromdate, '%Y-%m-%d')
+    todate = datetime.datetime.strptime(args.todate, '%Y-%m-%d')
+
+    # Create the 1st data
+    data = btfeeds.BacktraderCSVData(
+        dataname=args.data,
+        fromdate=fromdate,
+        todate=todate)
+
+    # Add the 1st data to cerebro
+    cerebro.adddata(data)
+
+    # Add a strategy
+    cerebro.addstrategy(SMACrossOver, period=args.period, stake=args.stake)
+
+    # Add the commission - only stocks like a for each operation
+    cerebro.broker.setcash(args.cash)
+
+    commtypes = dict(
+        none=None,
+        perc=bt.CommInfoBase.COMM_PERC,
+        fixed=bt.CommInfoBase.COMM_FIXED)
+
+    # Add the commission - only stocks like a for each operation
+    cerebro.broker.setcommission(commission=args.comm,
+                                 mult=args.mult,
+                                 margin=args.margin,
+                                 percabs=not args.percrel,
+                                 commtype=commtypes[args.commtype],
+                                 stocklike=args.stocklike)
+
+    # And run it
+    cerebro.run()
+
+    # Plot if requested
+    if args.plot:
+        cerebro.plot(numfigs=args.numfigs, volume=False)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Commission schemes',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
+
+    parser.add_argument('--data', '-d',
+                        default='../../datas/2006-day-001.txt',
+                        help='data to add to the system')
+
+    parser.add_argument('--fromdate', '-f',
+                        default='2006-01-01',
+                        help='Starting date in YYYY-MM-DD format')
+
+    parser.add_argument('--todate', '-t',
+                        default='2006-12-31',
+                        help='Starting date in YYYY-MM-DD format')
+
+    parser.add_argument('--stake', default=1, type=int,
+                        help='Stake to apply in each operation')
+
+    parser.add_argument('--period', default=30, type=int,
+                        help='Period to apply to the Simple Moving Average')
+
+    parser.add_argument('--cash', default=10000.0, type=float,
+                        help='Starting Cash')
+
+    parser.add_argument('--comm', default=2.0, type=float,
+                        help=('Commission factor for operation, either a'
+                              'percentage or a per stake unit absolute value'))
+
+    parser.add_argument('--mult', default=10, type=int,
+                        help='Multiplier for operations calculation')
+
+    parser.add_argument('--margin', default=2000.0, type=float,
+                        help='Margin for futures-like operations')
+
+    parser.add_argument('--commtype', required=False, default='none',
+                        choices=['none', 'perc', 'fixed'],
+                        help=('Commission - choose none for the old'
+                              ' CommissionInfo behavior'))
+
+    parser.add_argument('--stocklike', required=False, action='store_true',
+                        help=('If the operation is for stock-like assets or'
+                              'future-like assets'))
+
+    parser.add_argument('--percrel', required=False, action='store_true',
+                        help=('If perc is expressed in relative xx% rather'
+                              'than absolute value 0.xx'))
+
+    parser.add_argument('--plot', '-p', action='store_true',
+                        help='Plot the read data')
+
+    parser.add_argument('--numfigs', '-n', default=1,
+                        help='Plot using numfigs figures')
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    runstrategy()
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Commission Schemes - Custom Schemes
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Commission Schemes
+Commission Schemes - Extending
+Commission Schemes - Custom Schemes
+Commission Schemes - Credit Interest
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Defining a Commission Scheme
+How to apply this to the platform
+A practical example
+Explaining pseudoexec
+CommInfoBase docstring and params
+User Defined Commissions
+The most important part of reworking the CommInfo object to the actual incarnation involved:
+
+Retaining the original CommissionInfo class and behavior
+
+Opening the door for easy creation of user defined commissions
+
+Making the format xx% the default for new commission schemes instead of 0.xx (just a matter of taste), keeping the behavior configurable
+
+Note
+
+See below the docstring of CommInfoBase for parameters reference
+
+Defining a Commission Scheme
+It involves 1 or 2 steps
+
+Subclassing CommInfoBase
+
+Simply changing the default parameters may be enough. backtrader already does this with some definitions present in the module backtrader.commissions. The regular industry standard for Futures is a fixed amount per contract and per round. The definition can be done as:
+
+
+class CommInfo_Futures_Fixed(CommInfoBase):
+    params = (
+        ('stocklike', False),
+        ('commtype', CommInfoBase.COMM_FIXED),
+    )
+For stocks and perc-wise commissions:
+
+
+class CommInfo_Stocks_Perc(CommInfoBase):
+    params = (
+        ('stocklike', True),
+        ('commtype', CommInfoBase.COMM_PERC),
+    )
+As stated above the default for the interpretation of the percentage here (passed as parameter commission) is that of: xx%. Should the old/other behavior be wished 0.xx, it can be easily done:
+
+
+class CommInfo_Stocks_PercAbs(CommInfoBase):
+    params = (
+        ('stocklike', True),
+        ('commtype', CommInfoBase.COMM_PERC),
+        ('percabs', True),
+    )
+Overriding (if needed be) the _getcommission method
+
+Defined as:
+
+
+def _getcommission(self, size, price, pseudoexec):
+   '''Calculates the commission of an operation at a given price
+
+   pseudoexec: if True the operation has not yet been executed
+   '''
+More details in a practical example below
+
+How to apply this to the platform
+Once a CommInfoBase subclass is in place the trick is to use broker.addcommissioninfo rather than the usual broker.setcommission. The latter will internally use the legacy CommissionInfoObject.
+
+Easier done than said:
+
+
+...
+
+comminfo = CommInfo_Stocks_PercAbs(commission=0.005)  # 0.5%
+cerebro.broker.addcommissioninfo(comminfo)
+The addcommissioninfo method is defined as follows:
+
+
+def addcommissioninfo(self, comminfo, name=None):
+    self.comminfo[name] = comminfo
+Setting name means that the comminfo object will only apply to assets with that name. The default value of None means it applies to all assets in the system.
+
+A practical example
+Ticket #45 asks about a commission scheme which applies to Futures, is percentage wise and uses the commission percentage on the entire “virtual” value of the contract. ie: includes the future multiplier in the commission calculation.
+
+It should be easy:
+
+
+import backtrader as bt
+
+class CommInfo_Fut_Perc_Mult(bt.CommInfoBase):
+    params = (
+      ('stocklike', False),  # Futures
+      ('commtype', bt.CommInfoBase.COMM_PERC),  # Apply % Commission
+    # ('percabs', False),  # pass perc as xx% which is the default
+    )
+
+    def _getcommission(self, size, price, pseudoexec):
+        return size * price * self.p.commission * self.p.mult
+Putting it into the system:
+
+
+comminfo = CommInfo_Fut_Perc_Mult(
+    commission=0.1,  # 0.1%
+    mult=10,
+    margin=2000  # Margin is needed for futures-like instruments
+)
+
+cerebro.addcommissioninfo(comminfo)
+If the format 0.xx is preferred as the default, just set param percabs to True:
+
+
+class CommInfo_Fut_Perc_Mult(bt.CommInfoBase):
+    params = (
+      ('stocklike', False),  # Futures
+      ('commtype', bt.CommInfoBase.COMM_PERC),  # Apply % Commission
+      ('percabs', True),  # pass perc as 0.xx
+    )
+
+comminfo = CommInfo_Fut_Perc_Mult(
+    commission=0.001,  # 0.1%
+    mult=10,
+    margin=2000  # Margin is needed for futures-like instruments
+)
+
+cerebro.addcommissioninfo(comminfo)
+This all should do the trick.
+
+Explaining pseudoexec
+Let’s recall the definition of _getcommission:
+
+
+def _getcommission(self, size, price, pseudoexec):
+    '''Calculates the commission of an operation at a given price
+
+    pseudoexec: if True the operation has not yet been executed
+    '''
+The purpose of the pseudoexec arg may seem obscure but it serves a purpose.
+
+The platform may call this method to do precalculation of available cash and some other tasks
+
+This means that the method may (and it actually will) be called more than once with the same parameters
+
+pseudoexec indicates whether the call corresponds to the actual execution of an order. Although at first sight this may not seem “relevant”, it is if scenarios like the following are considered:
+
+A broker offers a 50% discount on futures round-trip commission once the amount of negotiated contracts has exceeeded 5000 units
+
+In such case and if pseudoexec was not there, the multiple non-execution calls to the method would quickly trigger the assumption that the discount is in place.
+
+Putting the scenario to work:
+
+
+import backtrader as bt
+
+class CommInfo_Fut_Discount(bt.CommInfoBase):
+    params = (
+      ('stocklike', False),  # Futures
+      ('commtype', bt.CommInfoBase.COMM_FIXED),  # Apply Commission
+
+      # Custom params for the discount
+      ('discount_volume', 5000),  # minimum contracts to achieve discount
+      ('discount_perc', 50.0),  # 50.0% discount
+    )
+
+    negotiated_volume = 0  # attribute to keep track of the actual volume
+
+    def _getcommission(self, size, price, pseudoexec):
+        if self.negotiated_volume > self.p.discount_volume:
+           actual_discount = self.p.discount_perc / 100.0
+        else:
+           actual_discount = 0.0
+
+        commission = self.p.commission * (1.0 - actual_discount)
+        commvalue = size * price * commission
+
+        if not pseudoexec:
+           # keep track of actual real executed size for future discounts
+           self.negotiated_volume += size
+
+        return commvalue
+The purpose and being of pseudoexec are hopefully clear now.
+
+CommInfoBase docstring and params
+See Commissions: Stocks vs Futures for the reference of CommInfoBase
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Commission Schemes - Credit Interest
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Commission Schemes
+Commission Schemes - Extending
+Commission Schemes - Custom Schemes
+Commission Schemes - Credit Interest
+Analyzers
+Observers
+Sizers
+Live Trading
+Plotting
+Datetime
+Automated Running
+Table of contents
+Parameters
+The formula
+Overriding the formula
+Commissions: Credit
+In some situations, the cash amount in real brokers may be decreased because the operation on assets includes an interest rate. Examples:
+
+Short selling of stocks
+
+ETFs both long and short
+
+The charge goes directly against the cash balance in the broker account. But it can still be seen as part of a commission scheme. And as such it has been modeled in backtrader.
+
+The CommInfoBase class (and with it also the CommissionInfo main interface object) has been extended with:
+
+Two (2) new parameters that allow setting the interest rate and determining if should be applied only to the short side or to both long and short
+Parameters
+interest (def: 0.0)
+
+If this is non-zero, this is the yearly interest charged for holding a short selling position. This is mostly meant for stock short-selling
+
+The default formula applied: days * price * size * (interest / 365)
+
+It must be specified in absolute terms: 0.05 -> 5%
+
+Note
+
+the behavior can be changed by overriding the method: get_credit_interest
+
+interest_long (def: False)
+
+Some products like ETFs get charged on interest for short and long positions. If ths is True and interest is non-zero the interest will be charged on both directions
+
+The formula
+The default implementation will use the following formula:
+
+
+days * abs(size) * price * (interest / 365)
+Where:
+
+days: number of days elapsed since position was opened or the last credit interest calculation took place
+Overriding the formula
+In order to change the formula subclassing of CommissionInfo is needed. The method to be overridden is:
+
+
+def _get_credit_interest(self, size, price, days, dt0, dt1):
+    '''
+    This method returns  the cost in terms of credit interest charged by
+    the broker.
+
+    In the case of ``size > 0`` this method will only be called if the
+    parameter to the class ``interest_long`` is ``True``
+
+    The formulat for the calculation of the credit interest rate is:
+
+      The formula: ``days * price * abs(size) * (interest / 365)``
+
+
+    Params:
+      - ``data``: data feed for which interest is charged
+
+      - ``size``: current position size. > 0 for long positions and < 0 for
+        short positions (this parameter will not be ``0``)
+
+      - ``price``: current position price
+
+      - ``days``: number of days elapsed since last credit calculation
+        (this is (dt0 - dt1).days)
+
+      - ``dt0``: (datetime.datetime) current datetime
+
+      - ``dt1``: (datetime.datetime) datetime of previous calculation
+
+    ``dt0`` and ``dt1`` are not used in the default implementation and are
+    provided as extra input for overridden methods
+    '''
+It might be that the broker doesn’t consider weekends or bank holidays when calculating the interest rate. In this case this subclass would do the trick
+
+
+import backtrader as bt
+
+class MyCommissionInfo(bt.CommInfo):
+
+   def _get_credit_interest(self, size, price, days, dt0, dt1):
+       return 1.0 * abs(size) * price * (self.p.interest / 365.0)
+In this case, in the formula:
+
+days has been replaced by 1.0
+Because if weekends/bank holidays do not count, the next calculation will always happen 1 trading da after the previous calculation
+
+(C) 2015-2024 Daniel Rodriguez
+

@@ -1,0 +1,58 @@
+{
+  "sources": [
+    {
+      "name": "Bloomberg Markets",
+      "url": "https://www.bloomberg.com/feed/podcast/markets.xml",
+      "category": "markets"
+    },
+    {
+      "name": "Reuters Business",
+      "url": "https://www.reutersagency.com/feed/?taxonomy=best-topics&post_type=best",
+      "category": "business"
+    },
+    {
+      "name": "Financial Times",
+      "url": "https://www.ft.com/?format=rss",
+      "category": "finance"
+    },
+    {
+      "name": "Yahoo Finance",
+      "url": "https://finance.yahoo.com/news/rssindex",
+      "category": "finance"
+    },
+    {
+      "name": "MarketWatch",
+      "url": "http://feeds.marketwatch.com/marketwatch/topstories/",
+      "category": "markets"
+    },
+    {
+      "name": "Seeking Alpha",
+      "url": "https://seekingalpha.com/feed.xml",
+      "category": "investing"
+    },
+    {
+      "name": "CoinDesk",
+      "url": "https://www.coindesk.com/arc/outboundfeeds/rss/",
+      "category": "crypto"
+    },
+    {
+      "name": "Benzinga",
+      "url": "https://www.benzinga.com/feed",
+      "category": "markets"
+    }
+  ],
+  "proxies": {
+    "enabled": false,
+    "proxy_list": [
+      "http://proxy1.example.com:8080",
+      "http://proxy2.example.com:8080"
+    ],
+    "rotation": "round-robin"
+  },
+  "settings": {
+    "timeout": 30,
+    "max_retries": 3,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "update_interval_minutes": 15
+  }
+}

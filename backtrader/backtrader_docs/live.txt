@@ -1,0 +1,1614 @@
+Skip to content
+logo
+Backtrader
+Live Trading - Interactive Brokers
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Live Trading - Intro
+Live Trading - Interactive Brokers
+Live Trading - Oanda v1.0
+Live Trading - Visual Chart
+Plotting
+Datetime
+Automated Running
+Table of contents
+Sample Code
+Store Model vs Direct Model
+IBStore - the store
+IBData feeds
+Data Options
+Data Contract Check
+Data Notifications
+Data TimeFrames and Compressions
+Time Management
+Live Feeds and Resampling/Replaying
+IBBroker - Trading Live
+Using the broker
+Broker Parameters
+Some restrictions
+Cash and Value reporting
+Position
+Trading with it
+Order objects returned
+Order Execution Types
+Order Validity
+Notifications
+Reference
+IBStore
+class backtrader.stores.IBStore()
+IBBroker
+class backtrader.brokers.IBBroker(**kwargs)
+Notes
+IBData
+class backtrader.feeds.IBData(**kwargs)
+Interactive Brokers
+The integration with Interactive Brokers supports both:
+
+Live Data feeding
+
+Live Trading
+
+Note
+
+In spite of all attempts to test the maximum number of error conditions and situations, the code could (like any other piece of software) contain bugs.
+
+Test any strategy thoroughly with a Paper Trading account or the TWS Demo before going in production.
+
+Note
+
+Interaction with Interactive Brokers is done by using the IbPy module and this has to be installed prior to usage. There is no package in Pypi (at the time of writing) but it can be installed using pip with the following command:
+
+
+pip install git+https://github.com/blampe/IbPy.git
+If git is not available in your system (Windows installation?) the following should also work:
+
+
+pip install https://github.com/blampe/IbPy/archive/master.zip
+Sample Code
+The sources contain a full sample under:
+
+samples/ibtest/ibtest.py
+The sample cannot cover every possible use case but it tries to provide broad insight and should highlight that there is no real difference when it comes to use the backtesting module or the live data module
+
+One thing could be pin-pointed:
+
+The sample waits for a data.LIVE data status notification before any trading activity takes place.
+
+This would probably is something to consider in any live strategy
+
+Store Model vs Direct Model
+Interaction with Interactive Brokers is supported through 2 models:
+
+Store Model (Preferred)
+
+Direct interaction with the data feed class and the broker class
+
+The store model provides a clear separation pattern when it comes down to creating brokers and datas. Two code snippets should serve better as an example.
+
+First with the Store model:
+
+
+import backtrader as bt
+
+ibstore = bt.stores.IBStore(host='127.0.0.1', port=7496, clientId=35)
+data = ibstore.getdata(dataname='EUR.USD-CASH-IDEALPRO')
+Here the parameters:
+
+host, port and clientId are passed to where they belong the IBStore which opens a connection using those parameters.
+And then a data feed is created with getdata and a parameter common to all data feeds in backtrader
+
+dataname whic requests the EUR/USD Forex pair.
+And now with direct usage:
+
+
+import backtrader as bt
+
+data = bt.feeds.IBData(dataname='EUR.USD-CASH-IDEALPRO',
+                       host='127.0.0.1', port=7496, clientId=35)
+Here:
+
+Parameters intended for the store are passed to the data.
+
+Those will be used to create a IBStore instance in the background
+
+The drawback:
+
+A lot less clarity, because it becomes unclear what belongs to the data and what belongs to the store.
+IBStore - the store
+The store is the keystone of the live data feed/trade support, providing a layer of adaptation between the IbPy module and the needs of a data feed and a broker proxy.
+
+A Store is a concept which covers the following functions:
+
+Being the central shop for an entity: in this case the entity is IB
+
+Which may or may not require parameters
+
+Providing access to getting a broker instance with the method:
+
+IBStore.getbroker(*args, **kwargs)
+Providing access to getter data feed instances
+
+IBStore.getdata(*args, **kwargs)
+In this case many of the **kwargs are common to data feeds like dataname, fromdate, todate, sessionstart, sessionend, timeframe, compression
+
+The data may provide other params. Check the reference below.
+
+The IBStore provides:
+
+Connectivity target (host and port parameters)
+
+Identification (clientId parameter)
+
+Re-connectivity control (reconnect and timeout parameters)
+
+Time offset check (timeoffset parameters, see below)
+
+Notification and debugging
+
+notifyall (default: False): in this case any error message (many are simply informative) sent by IB will be relayed to Cerebro/Strategy
+
+_debug (default: False): in this case each and every message received from TWS will be print out to standard outpu
+
+IBData feeds
+Data Options
+Be it directly or over getdata the IBData feed supports the following data options:
+
+Historical download requests
+
+These will be split over multiple requests if the duration exceeds the limits imposed by IB for a given timeframe/compression combination
+
+RealTime Data in 3 flavors
+
+tickPrice events (via IB reqMktData)
+Used for CASH products (experimentation with at least TWS API 9.70 has shown no support for the other types)
+
+Receives a tick price event by looking at the BID prices, which according to the non-official Internet literature seems to be the way to track the CASH market prices.
+
+Timestamps are generated locally in the system. An offset to the IB Server time can be used if wished by the end user (calculated from IB reqCurrentTime)
+
+tickString events (aka RTVolume (via IB reqMktData)
+Receives a OHLC/Volume snapshot from IB approx. every 250ms (or greater if no trading has happened)
+
+RealTimeBars events (via IB reqRealTimeBars)
+Receives historical 5 seconds bars (duration fixed by IB) every 5 seconds
+
+If the chosen timeframe/combination is below the level Seconds/5 this feature will be automatically disabled.
+
+!!! note
+
+
+  `RealTimeBars` do not work with the TWS Demo
+The default behavior is to use: tickString in most cases unless the user specifically wants to use RealTimeBars
+
+Backfilling
+
+Unless the user requests to just do a historical download, the data feed will automatically backfill:
+
+At the start: with the maximum possible duration. Example: for a Days/1 (timeframe/compression) combination the maximum default duration at IB is 1 year and this is the amount of time that will be backfilled
+
+After a data disconnection: in this case the amount of data downloaded for the backfilling operation will be reduced to the minimum by looking at the latest data received before the disconnection.
+
+Note
+
+Take into account that the final timeframe/compression combination taken into account may not be the one specified during data feed creation but during insertion in the system. See the following example:
+
+
+data = ibstore.getdata(dataname='EUR.USD-CASH-IDEALPRO',
+                       timeframe=bt.TimeFrame.Seconds, compression=5)
+
+cerebro.resampledata(data, timeframe=bt.TimeFrame.Minutes, compression=2)
+As should now be clear, the final timeframe/compression combination taken into account is Minutes/2
+
+Data Contract Check
+During the start phase, the data feed will try to download the details of the specified contract (see the reference for how to specify it). If no such contract is found or multiple matches are found, the data will refuse to carry on and will notify it to the system. Some examples.
+
+Simple but unambiguous contract specification:
+
+
+data = ibstore.getdata(dataname='TWTR')  # Twitter
+Only one instance will be found (2016-06) because for the default type, STK, exchange SMART and currency (the default is none) a single contract trading in USD will be found.
+
+A similar approach will fail with AAPL:
+
+
+data = ibstore.getdata(dataname='AAPL')  # Error -> multiple contracts
+Because SMART finds contracts in several real exchanges and AAPL trades in different currencies in some of them. The following is ok:
+
+
+data = ibstore.getdata(dataname='AAPL-STK-SMART-USD')  # 1 contract found
+Data Notifications
+The data feed will report the current status via one or more of the following (check the Cerebro and Strategy reference)
+
+Cerebro.notify_data (if overriden)n
+
+A callback addded with Cerebro.adddatacb
+
+Strategy.notify_data (if overriden)
+
+An example inside the strategy:
+
+
+class IBStrategy(bt.Strategy):
+
+    def notify_data(self, data, status, *args, **kwargs):
+
+        if status == data.LIVE:  # the data has switched to live data
+           # do something
+           pass
+The following notifications will be sent following changes in the system:
+
+CONNECTED
+
+Sent on successful initial connection
+
+DISCONNECTED
+
+In this case retrieving the data is no longer possible and the data will indicate the system nothing can be done. Possible conditions:
+
+Wrong contract specified
+
+Interruption during historical download
+
+Number of reconnection attempts to TWS exceeded
+
+CONNBROKEN
+
+Connectivity has been lost to either TWS or to the data farms. The data feed will try (via the store) to reconnect and backfill, when needed, and resume operations
+
+NOTSUBSCRIBED
+
+Contract and connection are ok, but the data cannot be retrieved due to lack of permissions.
+
+The data will indicate to the system that it cannot retrieve the data
+
+DELAYED
+
+Signaled to indicate that a historical/backfilling operation are in progress and the data being processed by the strategy is not real-time data
+
+LIVE
+
+Signaled to indicate that the data to be processed from this point onwards by the strategy is real-time data
+
+Developers of strategies should consider which actions to undertake in cases like when a disconnection takes place or when receiving delayed data.
+
+Data TimeFrames and Compressions
+Data feeds in the backtrader ecosystem, support the timeframe and compression parameters during creation. These parameters are also accessible as attributes with data._timeframe and data._compression
+
+The significance of timeframe/compression combinations has a specific purpose whenpassing the data to a cerebro instance via resampledata or replaydata, to let the internal resampler/replayer objects to understand what the intended target is. ._timeframe and ._compression will be overwritten in the data when resampled/replayed.
+
+But in live data feeds on the other hand this information can play an important role. See the following example:
+
+
+data = ibstore.getdata(dataname='EUR.USD-CASH-IDEALPRO',
+                       timeframe=bt.TimeFrame.Ticks,
+                       compression=1,  # 1 is the default
+                       rtbar=True,  # use RealTimeBars
+                      )
+cerebro.adddata(data)
+The user is requesting tick data and this important because:
+
+No backfilling will take place (the minimum unit supported by IB is Seconds/1)
+
+Even if RealTimeBars are requested and supported by the dataname, they will not be used because the minimum resolution of a RealTimeBar is Seconds/5
+
+In any case and unless working with a resolution of Ticks/1, the data has to be resampled/replayed. The case above with realtimebars and working:
+
+
+data = ibstore.getdata(dataname='TWTR-STK-SMART', rtbar=True)
+cerebro.resampledata(data, timeframe=bt.TimeFrame.Seconds, compression=20)
+In this case and as explained above, the ._timeframe and ._compression attributes of the data will be overwritten during resampledata. This is what will happen:
+
+backfilling will happen requesting a resolution of Seconds/20
+
+RealTimeBars will be used for real-time data because the resolution is equal/greater than Seconds/5 and the data supports is (is no CASH product)
+
+Events to the system from TWS will happen at most every 5 seconds. This is possibly not important because the system will only send a bar to the strategy every 20 seconds.
+
+The same without RealTimeBars:
+
+
+data = ibstore.getdata(dataname='TWTR-STK-SMART')
+cerebro.resampledata(data, timeframe=bt.TimeFrame.Seconds, compression=20)
+In this case:
+
+backfilling will happen requesting a resolution of Seconds/20
+
+tickString will be used for real-time data because (is no CASH product)
+
+Events to the system from TWS will happen every at most every 250ms. This is possibly not important because the system will only send a bar to the strategy every 20 seconds.
+
+Finally with a CASH product and up to 20 seconds:
+
+
+data = ibstore.getdata(dataname='EUR.USD-CASH-IDEALPRO')
+cerebro.resampledata(data, timeframe=bt.TimeFrame.Seconds, compression=20)
+In this case:
+
+backfilling will happen requesting a resolution of Seconds/20
+
+tickPrice will be used for real-time data because this is a cash product
+
+Even if rtbar=True is added
+
+Events to the system from TWS will happen at most every 250ms. This is possibly not important because the system will only send a bar to the strategy every 20 seconds.
+
+Time Management
+The data feed will automatically determine the timezone from the ContractDetails object reported by TWS.
+
+Note
+
+This requires that pytz be installed. If not installed the user should supply with the tz parameter to the data source a tzinfo compatible instance for the desired output timezone
+
+Note
+
+If pytz is installed and the user feels the automatic timezone determination is not working, the tz parameter can contain a string with the name of the timezone. backtrader will try to instantiate a pytz.timezone with the given name
+
+The reported datetime will be that of the timezone related to the product. Some examples:
+
+Product: EuroStoxxx 50 in the Eurex (ticker: ESTX50-YYYYMM-DTB)
+
+The timezone will be CET (Central European Time) aka Europe/Berlin
+
+Product: ES-Mini (ticker: ES-YYYYMM-GLOBEX)
+
+The timezone will be EST5EDT aka EST aka US/Eastern
+
+Product: EUR.JPY forex pair (ticker EUR.JPY-CASH-IDEALPRO)
+
+The timezone will be EST5EDT aka EST aka US/Eastern
+
+Actually this is an Interactive Brokers setting, because Forex pairs trade almost 24 hours without interruption and as such there wouldn’t be a real timezone for them.
+
+This behavior makes sure that trading remains consistent regardless of the actual location of the trader, given that the computer will most likely have the actual location timezone and not the timezone of the trading venue.
+
+Please read the Time Management section of the manual.
+
+Note
+
+The TWS Demo is not accurate at reporting timezones for assets for which no data download permissions are available (The EuroStoxx 50 future is an example of those cases)
+
+Live Feeds and Resampling/Replaying
+A design decision with regards to when to deliver bars for live feeds is:
+
+Deliver them as much in real-time as possible
+This may seem obvious and it is the case for a timeframe of Ticks, but if Resampling/Replaying play a role, delays can take place. Use case:
+
+Resampling is configured to Seconds/5 with:
+
+
+cerebro.resampledata(data, timeframe=bt.TimeFrame.Seconds, compression=5)
+A tick with time 23:05:27.325000 is delivered
+
+Trading in the market is slow and the next tick is delivered at 23:05:59.025000
+
+It may not seem obvious but backtrader doesn’t know that trading is very slow and the next tick will come in around 32 seconds later. With no provisions in place a resampled bar with time 23:05:30.000000 would be delivered around 29 seconds too late.
+
+That’s why the live feed wakes up every x seconds (float value) to go to the Resampler/Replayer and let it know that no new data has come in. This is controlled with the parameter qcheck (default value: 0.5 seconds) when creating a live data feed.
+
+That means that the resampler has a chance every qcheck seconds to deliver a bar if the local clock says, the resampling period is over. With this in place, the resampled bar for the scenario above (23:05:30.000000) would be delivered at most qcheck seconds after the reported time.
+
+Because the default valus is 0.5 the latest time would be: 23:05:30.500000. That is almost 29 seconds earlier as before.
+
+The drawback:
+
+Some ticks may come in too late for the already delivered resampled/replayed bar
+If after delivering, TWS gets a late message from the server with a timestamp of 23:05:29.995\000, this is simply too late for the already reported time to the system of23:05.30.000000`
+
+This happens mostly if:
+
+timeoffset is disabled (set to False) in IBStore\ and the time difference between the *IB reported time and the local clock is significant.
+The best approach to avoid most of those late samples:
+
+Increase the qcheck value, to allow for late messages to be taken into account:
+
+
+data = ibstore.getdata('TWTR', qcheck=2.0, ...)
+This should add extra room, even if it delays the delivery of the resampled/replayed bar
+
+Note
+
+Of course a delay of 2.0 seconds has a different significance for a resampling of Seconds/5 than for a resampling of Minutes/10
+
+If for whatever reason the end-user wishes to disable timeoffset and not manage via qcheck, the late samples can still be taken:
+
+Use _latethrough set to True as a parameter to getdata / IBData:
+
+
+data = ibstore.getdata('TWTR', _latethrough=True, ...)
+Use takelate set to True when resampling/replaying:
+
+
+cerebro.resampledata(data, takelate=True)
+IBBroker - Trading Live
+Note
+
+Following a request a tradeid functionality was implemented in the broker simulation available in backtrader. This allows to keep track of trades being executed in paralled on the same asset correctly allocating commissions to the appropriate tradeid
+
+Such notion is not supported in this live broker because commissions are reported by the broker at times at which it would be impossible to separate them for the different tradeid values.
+
+tradeid can still be specified but it makes no longer sense.
+
+Using the broker
+To use the IB Broker, the standard broker simulation instance created by cerebro has to be replaced.
+
+Using the Store model (preferred):
+
+
+import backtrader as bt
+
+cerebro = bt.Cerebro()
+ibstore = bt.stores.IBStore(host='127.0.0.1', port=7496, clientId=35)
+cerebro.broker = ibstore.getbroker()  # or cerebro.setbroker(...)
+Using the direct approach:
+
+
+import backtrader as bt
+
+cerebro = bt.Cerebro()
+cerebro.broker = bt.brokers.IBBroker(host='127.0.0.1', port=7496, clientId=35)
+Broker Parameters
+Be it directly or over getbroker the IBBroker broker supports no parameters. This is because the broker is just a proxy to the a real Broker. And what the real broker gives, shall not be taken away.
+
+Some restrictions
+Cash and Value reporting
+Where the internal backtrader broker simulation makes a calculation of value (net liquidation value) and cash before calling the strategy next method, the same cannot be guaranteed with a live broker.
+
+If the values were requested, the execution of next could be delayed until the answers arrive
+
+The broker may not yet have calculated the values
+
+backtrader tells TWS to provide the updated values as soon as they are changed (backtrader subscribes to accounUpdate messages), but it doesn’t know when the messages will arrive.
+
+The values reported by the getcash and getvalue methods of IBBroker are always the latest values received from IB.
+
+Note
+
+A further restriction is that the values are reported in the base currency of the account, even if values for more currencies are available. This is a design choise.
+
+Position
+backtrader uses the Position (price and size) of an asset reported by TWS. Internal calculations could be used following order execution and order status messages, but if some of these messages were missed (sockets sometimes lose packets) the calculations would not follow.
+
+Of course if upon connecting to TWS the asset on which trades will be executed already has an open position, the calculation of Trades made by the strategy will not work as usual because of the initial offset
+
+Trading with it
+There is no change with regards to the standard usage. Just use the methods available in the strategy (see the Strategy reference for a full explanation)
+
+buy
+
+sell
+
+close
+
+cancel
+
+Order objects returned
+Compatible with the backtrader Order objects (subclass in the same hierarchy)
+Order Execution Types
+IB supports a myriad of execution types, some of them simulated by IB and some of them supported by the exchange itself. The decision as to which order execution types to initially support has a motivation:
+
+Compatibility with the broker simulation available in backtrader
+
+The reasoning being that what has been back-tested is what will go in production.
+
+As such the order execution types are limited to the ones available in the broker simulation:
+
+Order.Market
+
+Order.Close
+
+Order.Limit
+
+Order.Stop (when the Stop is triggered a Market order follows)
+
+Order.StopLimit (when the Stop is triggered a Limit order follows)
+
+Note
+
+Stop triggering is done following different strategies by IB. backtrader does not modify the default setting which is 0:
+
+
+0 - the default value. The "double bid/ask" method will be used for
+orders for OTC stocks and US options. All other orders will use the
+"last" method.
+If the user wishes to modify this, extra **kwargs can be supplied to buy and sell following the IB documentation. For example inside the next method of a strategy:
+
+
+def next(self):
+    # some logic before
+    self.buy(data, m_triggerMethod=2)
+This has changed the policy to 2 (“last” method, where stop orders are triggered based on the last price.)
+
+Please consult the IB API docs for any further clarification on stop triggering
+
+Order Validity
+The same validity notion available during backtesting (with valid to buy and sell) is available and with the same meaning. As such, the valid parameter is translated as follows for IB Orders for the following values:
+
+None -> GTC (Good Til Cancelled)
+
+Because no validity has been specified it is understood that the order must be valid until cancelled
+
+datetime/date translates to GTD (Good Til Date)
+
+Passing a datetime.datetime/datetime.date instance indicates the order must be valid until a given point in time.
+
+timedelta(x) translates to GTD (here timedelta(x) != timedelta())
+
+This is interpreted as a signal to have an order be valid from now + timedelta(x)
+
+float translates to GTD
+
+If the value has been taken from the raw float datetime storage used by backtrader the order must valid until the datetime indicated by that float
+
+timedelta() or 0 translates to DAY
+
+A value has been (instead of None) but is Null and is interpreted as an order valid for the current day (session)
+
+Notifications
+The standard Order status will be notified to a strategy over the method notify_order (if overridden)
+
+Submitted - the order has been sent to TWS
+
+Accepted - the order has been placed
+
+Rejected - order placement failed or was cancelled by the system during its lifetime
+
+Partial - a partial execution has taken place
+
+Completed - the order has been fully executed
+
+Canceled (or Cancelled)
+
+This has several meanings under IB:
+
+Manual User Cancellation
+
+The Server/Exchange cancelled the order
+
+Order Validity expired
+
+An heuristic will be applied and if an openOrder message has been received from TWS with an orderState indicating PendingCancel or Canceled, then the order will be marked as Expired
+
+Expired - See above for the explanation
+
+Reference
+IBStore
+class backtrader.stores.IBStore()
+Singleton class wrapping an ibpy ibConnection instance.
+
+The parameters can also be specified in the classes which use this store, like IBData and IBBroker
+
+Params:
+
+host (default:127.0.0.1): where IB TWS or IB Gateway are actually running. And although this will usually be the localhost, it must not be
+
+port (default: 7496): port to connect to. The demo system uses 7497
+
+clientId (default: None): which clientId to use to connect to TWS.
+
+None: generates a random id between 1 and 65535 An integer: will be passed as the value to use.
+
+notifyall (default: False)
+
+If False only error messages will be sent to the notify_store methods of Cerebro and Strategy.
+
+If True, each and every message received from TWS will be notified
+
+_debug (default: False)
+
+Print all messages received from TWS to standard output
+
+reconnect (default: 3)
+
+Number of attempts to try to reconnect after the 1st connection attempt fails
+
+Set it to a -1 value to keep on reconnecting forever
+
+timeout (default: 3.0)
+
+Time in seconds between reconnection attemps
+
+timeoffset (default: True)
+
+If True, the time obtained from reqCurrentTime (IB Server time) will be used to calculate the offset to localtime and this offset will be used for the price notifications (tickPrice events, for example for CASH markets) to modify the locally calculated timestamp.
+
+The time offset will propagate to other parts of the backtrader ecosystem like the resampling to align resampling timestamps using the calculated offset.
+
+timerefresh (default: 60.0)
+
+Time in seconds: how often the time offset has to be refreshed
+
+indcash (default: True)
+
+Manage IND codes as if they were cash for price retrieval
+
+IBBroker
+class backtrader.brokers.IBBroker(**kwargs)
+Broker implementation for Interactive Brokers.
+
+This class maps the orders/positions from Interactive Brokers to the internal API of backtrader.
+
+Notes
+tradeid is not really supported, because the profit and loss are taken directly from IB. Because (as expected) calculates it in FIFO manner, the pnl is not accurate for the tradeid.
+
+Position
+
+If there is an open position for an asset at the beginning of operaitons or orders given by other means change a position, the trades calculated in the Strategy in cerebro will not reflect the reality.
+
+To avoid this, this broker would have to do its own position management which would also allow tradeid with multiple ids (profit and loss would also be calculated locally), but could be considered to be defeating the purpose of working with a live broker
+
+IBData
+class backtrader.feeds.IBData(**kwargs)
+Interactive Brokers Data Feed.
+
+Supports the following contract specifications in parameter dataname:
+
+TICKER # Stock type and SMART exchange
+
+TICKER-STK # Stock and SMART exchange
+
+TICKER-STK-EXCHANGE # Stock
+
+TICKER-STK-EXCHANGE-CURRENCY # Stock
+
+TICKER-CFD # CFD and SMART exchange
+
+TICKER-CFD-EXCHANGE # CFD
+
+TICKER-CDF-EXCHANGE-CURRENCY # Stock
+
+TICKER-IND-EXCHANGE # Index
+
+TICKER-IND-EXCHANGE-CURRENCY # Index
+
+TICKER-YYYYMM-EXCHANGE # Future
+
+TICKER-YYYYMM-EXCHANGE-CURRENCY # Future
+
+TICKER-YYYYMM-EXCHANGE-CURRENCY-MULT # Future
+
+TICKER-FUT-EXCHANGE-CURRENCY-YYYYMM-MULT # Future
+
+TICKER-YYYYMM-EXCHANGE-CURRENCY-STRIKE-RIGHT # FOP
+
+TICKER-YYYYMM-EXCHANGE-CURRENCY-STRIKE-RIGHT-MULT # FOP
+
+TICKER-FOP-EXCHANGE-CURRENCY-YYYYMM-STRIKE-RIGHT # FOP
+
+TICKER-FOP-EXCHANGE-CURRENCY-YYYYMM-STRIKE-RIGHT-MULT # FOP
+
+CUR1.CUR2-CASH-IDEALPRO # Forex
+
+TICKER-YYYYMMDD-EXCHANGE-CURRENCY-STRIKE-RIGHT # OPT
+
+TICKER-YYYYMMDD-EXCHANGE-CURRENCY-STRIKE-RIGHT-MULT # OPT
+
+TICKER-OPT-EXCHANGE-CURRENCY-YYYYMMDD-STRIKE-RIGHT # OPT
+
+TICKER-OPT-EXCHANGE-CURRENCY-YYYYMMDD-STRIKE-RIGHT-MULT # OPT
+
+Params:
+
+sectype (default: STK)
+
+Default value to apply as security type if not provided in the dataname specification
+
+exchange (default: SMART)
+
+Default value to apply as exchange if not provided in the dataname specification
+
+currency (default: '')
+
+Default value to apply as currency if not provided in the dataname specification
+
+historical (default: False)
+
+If set to True the data feed will stop after doing the first download of data.
+
+The standard data feed parameters fromdate and todate will be used as reference.
+
+The data feed will make multiple requests if the requested duration is larger than the one allowed by IB given the timeframe/compression chosen for the data.
+
+what (default: None)
+
+If None the default for different assets types will be used for historical data requests:
+
+‘BID’ for CASH assets
+
+‘TRADES’ for any other
+
+Check the IB API docs if another value is wished
+
+rtbar (default: False)
+
+If True the 5 Seconds Realtime bars provided by Interactive Brokers will be used as the smalles tick. According to the documentation they correspond to real-time values (once collated and curated by IB)
+
+If False then the RTVolume prices will be used, which are based on receiving ticks. In the case of CASH assets (like for example EUR.JPY) RTVolume will always be used and from it the bid price (industry de-facto standard with IB according to the literature scattered over the Internet)
+
+Even if set to True, if the data is resampled/kept to a timeframe/compression below Seconds/5, no real time bars will be used, because IB doesn’t serve them below that level
+
+qcheck (default: 0.5)
+
+Time in seconds to wake up if no data is received to give a chance to resample/replay packets properly and pass notifications up the chain
+
+backfill_start (default: True)
+
+Perform backfilling at the start. The maximum possible historical data will be fetched in a single request.
+
+backfill (default: True)
+
+Perform backfilling after a disconnection/reconnection cycle. The gap duration will be used to download the smallest possible amount of data
+
+backfill_from (default: None)
+
+An additional data source can be passed to do an initial layer of backfilling. Once the data source is depleted and if requested, backfilling from IB will take place. This is ideally meant to backfill from already stored sources like a file on disk, but not limited to.
+
+latethrough (default: False)
+
+If the data source is resampled/replayed, some ticks may come in too late for the already delivered resampled/replayed bar. If this is True those ticks will bet let through in any case.
+
+Check the Resampler documentation to see who to take those ticks into account.
+
+This can happen especially if timeoffset is set to False in the IBStore instance and the TWS server time is not in sync with that of the local computer
+
+tradename (default: None) Useful for some specific cases like CFD in which prices are offered by one asset and trading happens in a different onel
+
+SPY-STK-SMART-USD -> SP500 ETF (will be specified as dataname)
+
+SPY-CFD-SMART-USD -> which is the corresponding CFD which offers not price tracking but in this case will be the trading asset (specified as tradename)
+
+The default values in the params are the to allow things like \TICKER, to which the parametersectype(default:STK) andexchange(default:SMART`) are applied.
+
+Some assets like AAPL need full specification including currency (default: ‘’) whereas others like TWTR can be simply passed as it is.
+
+AAPL-STK-SMART-USD would be the full specification for dataname
+
+Or else: IBData as IBData(dataname='AAPL', currency='USD') which uses the default values (STK and SMART) and overrides the currency to be USD
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Live Trading - Oanda v1.0
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Live Trading - Intro
+Live Trading - Interactive Brokers
+Live Trading - Oanda v1.0
+Live Trading - Visual Chart
+Plotting
+Datetime
+Automated Running
+Table of contents
+Requirements
+Sample Code
+Oanda - the store
+Mandatory parameters
+Oanda feeds
+Time management
+Backfilling
+OandaBroker - Trading Live
+Using the broker
+Broker - Initial Positions
+Opperations
+Order Execution Types
+Order Validity
+Notifications
+Reference
+OandaStore
+class backtrader.stores.OandaStore()
+OandaBroker
+class backtrader.brokers.OandaBroker(**kwargs)
+OandaData
+class backtrader.feeds.OandaData(**kwargs)
+Oanda
+The integration with Oanda supports both:
+
+Live Data feeding
+
+Live Trading
+
+Requirements
+oandapy
+
+Install it with: pip install git+https://github.com/oanda/oandapy.git
+
+pytz (optional and not really recommended)
+
+Given the worlwide and 24x7 nature of Forex, the choice is work in UTC time. You may still work with your desired output timezone if wished.
+
+Sample Code
+The sources contain a full sample under:
+
+samples/oandatest/oandatest.py
+Oanda - the store
+The store is the keystone of the live data feed/trade support, providing a layer of adaptation between the Oanda API and the needs of a data feed and a broker proxy.
+
+Providesaccess to getting a broker instance with the method:
+
+OandaStore.getbroker(*args, **kwargs)
+Provides access to getter data feed instances
+
+OandaStore.getedata(\*args, **kwargs)
+In this case many of the **kwargs are common to data feeds like dataname, fromdate, todate, sessionstart, sessionend, timeframe, compression
+
+The data may provide other params. Check the reference below.
+
+Mandatory parameters
+In order to successfully connect to Oanda, the following parameters are mandatory:
+
+token (default:None): API access token
+
+account (default: None): account id
+
+This are provided by Oanda
+
+Whether to connect to the practice server or to the real server, use:
+
+practice (default: False): use the test environment
+The account has to be periodically checked to get the cash and value. The periodicity can be controlled with:
+
+account_tmout (default: 10.0): refresh period for account value/cash refresh
+Oanda feeds
+Instantiating the data:
+
+Pass the symbol according to the Oanda guidelines
+
+EUR/USDD following the guidelines from Oanda has to be specified as as EUR_USD. Instantiate it as:
+
+data = oandastore.getdata(dataname='EUR_USD', ...)
+Time management
+Unless a tz parameter (a pytz-compatible object) is passed to the data feed, all time output is in UTC format as expressed above.
+
+Backfilling
+backtrader makes no special request to Oanda. For small timeframes the backfilling returned by Oanda on the practice servers has been 500 bars long
+
+OandaBroker - Trading Live
+Using the broker
+To use the OandaBroker, the standard broker simulation instance created by cerebro has to be replaced.
+
+Using the Store model (preferred):
+
+
+import backtrader as bt
+
+cerebro = bt.Cerebro()
+oandastore = bt.stores.OandaStore()
+cerebro.broker = oandastore.getbroker()  # or cerebro.setbroker(...)
+Broker - Initial Positions
+The broker supports a single parameter:
+
+use_positions (default:True): When connecting to the broker provider use the existing positions to kickstart the broker.
+
+Set to False during instantiation to disregard any existing position
+
+Opperations
+There is no change with regards to the standar usage. Just use the methods available in the strategy (see the Strategy reference for a full explanation)
+
+buy
+
+sell
+
+close
+
+cancel
+
+Order Execution Types
+Oanda supports almost all of the order execution types needed by backtrader with the exception of Close.
+
+As such the order execution types are limited to:
+
+Order.Market
+
+Order.Limit
+
+Order.Stop
+
+Order.StopLimit (using Stop and upperBound / lowerBound prices)
+
+Order.StopTrail
+
+Bracket orders are supported by using the takeprofit and stoploss order members and creating internally simulated orders.
+
+Order Validity
+The same validity notion available during backtesting (with valid to buy and sell) is available and with the same meaning. As such, the valid parameter is translated as follows for Oanda Orders for the following values:
+
+None translates to Good Til Cancelled
+
+Because no validity has been specified it is understood that the order must be valid until cancelled
+
+datetime/date translates to Good Til Date
+
+timedelta(x) translates to Good Til Date (here timedelta(x) != timedelta())
+
+This is interpreted as a signal to have an order be valid from now + timedelta(x)
+
+timedelta() or 0 translates to Session
+
+A value has been passed (instead of None) but is Null and is interpreted as an order valid for the current day (session)
+
+Notifications
+The standard Order status will be notified to a strategy over the method notify_order (if overridden)
+
+Submitted - the order has been sent to TWS
+
+Accepted - the order has been placed
+
+Rejected - Use for real rejections and when no other status is known during order creation
+
+Partial - a partial execution has taken place
+
+Completed - the order has been fully executed
+
+Canceled (or Cancelled)
+
+Expired - when an order is cancelled due to expiry
+
+Reference
+OandaStore
+class backtrader.stores.OandaStore()
+Singleton class wrapping to control the connections to Oanda.
+
+Params:
+
+token (default:None): API access token
+
+account (default: None): account id
+
+practice (default: False): use the test environment
+
+account_tmout (default: 10.0): refresh period for account value/cash refresh
+
+OandaBroker
+class backtrader.brokers.OandaBroker(**kwargs)
+Broker implementation for Oanda.
+
+This class maps the orders/positions from Oanda to the internal API of backtrader.
+
+Params:
+
+use_positions (default:True): When connecting to the broker provider use the existing positions to kickstart the broker.
+
+Set to False during instantiation to disregard any existing position
+
+OandaData
+class backtrader.feeds.OandaData(**kwargs)
+Oanda Data Feed.
+
+Params:
+
+qcheck (default: 0.5)
+
+Time in seconds to wake up if no data is received to give a chance to resample/replay packets properly and pass notifications up the chain
+
+historical (default: False)
+
+If set to True the data feed will stop after doing the first download of data.
+
+The standard data feed parameters fromdate and todate will be used as reference.
+
+The data feed will make multiple requests if the requested duration is larger than the one allowed by IB given the timeframe/compression chosen for the data.
+
+backfill_start (default: True)
+
+Perform backfilling at the start. The maximum possible historical data will be fetched in a single request.
+
+backfill (default: True)
+
+Perform backfilling after a disconnection/reconnection cycle. The gap duration will be used to download the smallest possible amount of data
+
+backfill_from (default: None)
+
+An additional data source can be passed to do an initial layer of backfilling. Once the data source is depleted and if requested, backfilling from IB will take place. This is ideally meant to backfill from already stored sources like a file on disk, but not limited to.
+
+bidask (default: True)
+
+If True, then the historical/backfilling requests will request bid/ask prices from the server
+
+If False, then midpoint will be requested
+
+useask (default: False)
+
+If True the ask part of the bidask prices will be used instead of the default use of bid
+
+includeFirst (default: True)
+
+Influence the delivery of the 1st bar of a historical/backfilling request by setting the parameter directly to the Oanda API calls
+
+reconnect (default: True)
+
+Reconnect when network connection is down
+
+reconnections (default: -1)
+
+Number of times to attempt reconnections: -1 means forever
+
+reconntimeout (default: 5.0)
+
+Time in seconds to wait in between reconnection attemps
+
+This data feed supports only this mapping of timeframe and compression, which comply with the definitions in the OANDA API Developer’s Guid:
+
+
+(TimeFrame.Seconds, 5): 'S5',
+(TimeFrame.Seconds, 10): 'S10',
+(TimeFrame.Seconds, 15): 'S15',
+(TimeFrame.Seconds, 30): 'S30',
+(TimeFrame.Minutes, 1): 'M1',
+(TimeFrame.Minutes, 2): 'M3',
+(TimeFrame.Minutes, 3): 'M3',
+(TimeFrame.Minutes, 4): 'M4',
+(TimeFrame.Minutes, 5): 'M5',
+(TimeFrame.Minutes, 10): 'M10',
+(TimeFrame.Minutes, 15): 'M15',
+(TimeFrame.Minutes, 30): 'M30',
+(TimeFrame.Minutes, 60): 'H1',
+(TimeFrame.Minutes, 120): 'H2',
+(TimeFrame.Minutes, 180): 'H3',
+(TimeFrame.Minutes, 240): 'H4',
+(TimeFrame.Minutes, 360): 'H6',
+(TimeFrame.Minutes, 480): 'H8',
+(TimeFrame.Days, 1): 'D',
+(TimeFrame.Weeks, 1): 'W',
+(TimeFrame.Months, 1): 'M',
+Any other combination will be rejected
+
+(C) 2015-2024 Daniel Rodriguez
+
+
+Skip to content
+logo
+Backtrader
+Live Trading - Visual Chart
+ DRo
+ backtrader
+19.3k
+4.7k
+Search
+ 
+Home
+Documentation
+Articles
+Recipes/Resources
+Documentation
+Introduction
+Installation
+Quickstart Guide
+Concepts
+Cerebro
+Data Feeds
+Strategy
+Indicators
+Orders
+Broker
+Commission Schemes
+Analyzers
+Observers
+Sizers
+Live Trading
+Live Trading - Intro
+Live Trading - Interactive Brokers
+Live Trading - Oanda v1.0
+Live Trading - Visual Chart
+Plotting
+Datetime
+Automated Running
+Table of contents
+Requirements
+Sample Code
+VCStore - the store
+VCData feeds
+General
+Time management
+Small time problem
+Backfilling time lengths
+Trading the data
+Other parameters
+Data Notifications
+VCBroker - Trading Live
+Using the broker
+Broker Parameters
+Restrictions
+Position
+Commission
+Trading with it
+Account
+Opperations
+Order objects returned
+Order Execution Types
+Order Validity
+Notifications
+Reference
+VCStore
+class backtrader.stores.VCStore()
+VCBroker
+class backtrader.brokers.VCBroker(**kwargs)
+Notes
+VCData
+class backtrader.feeds.VCData(**kwargs)
+Visual Chart
+The integration with Visual Chart supports both:
+
+Live Data feeding
+
+Live Trading
+
+Visual Chart is a complete trading solution:
+
+Integrated Charting, data feed and brokering in a single platform
+
+For more information visit: www.visualchart.com
+
+Requirements
+VisualChart 6
+
+Windows - the one VisualChart is running on
+
+comtypes fork: https://github.com/mementum/comtypes
+
+Install it with: pip install https://github.com/mementum/comtypes/archive/master.zip
+
+The Visual Chart API is based on COM.
+
+The current comtypes main branch doesn’t support unpacking of VT_ARRAYS of VT_RECORD. And this is used by Visual Chart
+
+Pull Request #104 has been submitted but not yet integrated. As soon as it is integrated, the main branch can be used.
+
+pytz (optional but really recommended)
+
+To make sure each and every data is returned in the market time.
+
+This is true for most markets but some are really an exception (Global Indices being a good example)
+
+Time Management inside Visual Chart and its relation with the delivered times over COM is complex and having pytz tends to simplify things.
+
+Sample Code
+The sources contain a full sample under:
+
+samples/vctest/vctest.py
+The sample cannot cover every possible use case but it tries to provide broad insight and should highlight that there is no real difference when it comes to use the backtesting module or the live data module
+
+One thing could be pin-pointed:
+
+The sample waits for a data.LIVE data status notification before any trading activity takes place.
+
+This would probably is something to consider in any live strategy
+
+VCStore - the store
+The store is the keystone of the live data feed/trade support, providing a layer of adaptation between the COM API and the needs of a data feed and a broker proxy.
+
+Providesaccess to getting a broker instance with the method:
+
+VCStore.getbroker(*args, **kwargs)
+Provides access to getter data feed instances
+
+VCStore.getedata(*args, **kwargs)
+In this case many of the **kwargs are common to data feeds like dataname, fromdate, todate, sessionstart, sessionend, timeframe, compression
+
+The data may provide other params. Check the reference below.
+
+The VCStore will try to:
+
+Automatically locate VisualChart in the system using the Windows Registry
+
+If found, the installation directory will be scanned for the COM DLLs to create the COM typelibs and be able to instantiate the appropriate objects
+
+If not found, then an attempt will be made with known and hardcoded CLSIDs to do the same.
+
+Note
+
+Even if the DLLs can be found by scanning the filesystem, Visual Chart itself has to be running. backtrader won’t start Visual Chart
+
+Other responsibilities of the VCStore:
+
+Keeping general track of the connectivity status of Visual Chart to the server
+VCData feeds
+General
+The data feed offered by Visual Chart has some interesting properties:
+
+Resampling is done by the platform
+
+Not in all cases: Seconds is not supported and has still to be done by backtrader
+
+As such and only when doing something with seconds would the end user need to do:
+
+
+vcstore = bt.stores.VCStore()
+vcstore.getdata(dataname='015ES', timeframe=bt.TimeFrame.Ticks)
+cerebro.resampledata(data, timeframe=bt.TimeFrame.Seconds, compression=5)
+In all other cases it is enough with:
+
+
+vcstore = bt.stores.VCStore()
+data = vcstore.getdata(dataname='015ES', timeframe=bt.TimeFrame.Minutes, compression=2)
+cerebro.addata(data)
+The data will calculate a timeoffset internally by comparing the internal equipment clock and the ticks delivered by the platform in order to deliver the automatically resampled bars as early as possible if no new ticks are coming in.
+
+Instantiating the data:
+
+Pass the symbol seen on the top-left side of VisualChart without spaces. For example:
+
+ES-Mini is displayed as 001 ES. Instantiate it as:
+
+data = vcstore.getdata(dataname='001ES', ...)
+EuroStoxx 50 is displayed as 015 ES. Instantiate it as:
+
+data = vcstore.getdata(dataname='015ES', ...)
+Note
+
+backtrader will make an effort and clear out a whitespace located at the fourth position if the name is directly pasted from Visual Chart
+
+Time management
+The time management follow the general rules of backtrader
+
+Give the time in Market time, to make sure the code is not dependent on DST transitions happening at different times and making local time not reliable for time comparisons.
+This works for most markets in Visual Chart but some specific management is done for some markets:
+
+Datas in the exchange 096 which is named International Indices.
+
+These are theoretically reported to be in the timezone Europe/London but tests have revealed this seems to be partially true and some internal management is in place to cover for it.
+
+The use of real timezones for time management can be enabled by passing the parameter usetimezones=True. This tries to use pytz if available. It is not needed, as for most markets the internal time offsets provided by Visual Chart allow for the seamless conversion to the market time.
+
+In any case it would seem to be pointless to report the 096.DJI in Europe/London time when it is actually located in US/Eastern. As such backtrader will report it in the later. In that case the use of pytz is more than recommended.
+
+Note
+
+The Dow Jones Industrials index (not the global version) is located at 099I-DJI
+
+Note
+
+All this time management is pending a real test during a DST transition in which local and remote markets happend to be out of sync with regards to DST.
+
+List of International Indices for which the output timezone is defined in VCDATA:
+
+
+'096.FTSE': 'Europe/London',
+'096.FTEU3': 'Europe/London',
+'096.MIB30': 'Europe/Berlin',
+'096.SSMI': 'Europe/Berlin',
+'096.HSI': 'Asia/Hong_Kong',
+'096.BVSP': 'America/Sao_Paulo',
+'096.MERVAL': 'America/Argentina/Buenos_Aires',
+'096.DJI': 'US/Eastern',
+'096.IXIC': 'US/Eastern',
+'096.NDX': 'US/Eastern',
+Small time problem
+Passing fromdate or todate with a given time of day rather than the default 00:00:00 seems to create a filter in the COM API and bars for any days will only be delivered after the given time.
+
+As such:
+
+Please pass only full dates to VCData as in:
+
+
+data = vcstore.getdata(dataname='001ES', fromdate=datetime(2016, 5, 15))
+And not::
+
+
+data = vcstore.getdata(dataname=‘001ES’, fromdate=datetime(2016, 5, 15, 8, 30))
+Backfilling time lengths
+If no fromdate is specified by the end user, the platform will automatically try to backfill and the carry on with live data. The backfilling is timeframe dependent and is:
+
+Ticks, MicroSeconds, Seconds: 1 Day
+
+The same for the 3 timeframes given that Seconds and MicroSeconds are not directly supported by Visual Chart and are done through resampling of Ticks
+
+Minutes: 2 Days
+
+Days: 1 year
+
+Weeks: 2 years
+
+Months: 5 years
+
+Months: 20 years
+
+The defined backfilling periods are multiplied by the requested compression, that is: if the timeframe is Minutes and the compression is 5 the final backfilling period will be: 2 days * 5 -> 10 days
+
+Trading the data
+Visual Chart offers continuous futures. No manual management is needed and the future of your choice can be tracked without interruption. This is an advantage and presents a small challenge:
+
+ES-Mini is 001ES, but the actual trading asset (ex: Sep-2016) is ESU16.
+To overcome this and allow a strategy to track the continuous future and trade on the real asset the following can be specified during data instantiation:
+
+
+data = vcstore.getdata(dataname='001ES', tradename='ESU16')
+Trades will happen on ESU16, but the data feed will be frm 001ES (the data is the same 3 months long)
+
+Other parameters
+qcheck (default: 0.5 seconds) controls the frequency to wake up to talk to the internal resampler/replayer to avoid late delivery of bars.
+
+The following logic will be applied to used this parameter:
+
+If internal resampling/replaying is detected, the value will be used as it is.
+
+If no internal resampling/replaying is detected, the data feed will not wake up, because there is nothing to report to.
+
+The data feed will still wake up to check the Visual Chart built-in resampler, but this is automatically controlled.
+
+Data Notifications
+The data feed will report the current status via one or more of the following (check the Cerebro and Strategy reference)
+
+Cerebro.notify_data (if overriden)n
+
+A callback addded with Cerebro.adddatacb
+
+Strategy.notify_data (if overriden)
+
+An example inside the strategy:
+
+
+class VCStrategy(bt.Strategy):
+
+    def notify_data(self, data, status, *args, **kwargs):
+
+        if status == data.LIVE:  # the data has switched to live data
+           # do something
+           pass
+The following notifications will be sent following changes in the system:
+
+CONNECTED
+
+Sent on successful initial connection
+
+DISCONNECTED
+
+In this case retrieving the data is no longer possible and the data will indicate the system nothing can be done. Possible conditions:
+
+Wrong contract specified
+
+Interruption during historical download
+
+Number of reconnection attempts to TWS exceeded
+
+CONNBROKEN
+
+Connectivity has been lost to either TWS or to the data farms. The data feed will try (via the store) to reconnect and backfill, when needed, and resume operations
+
+NOTSUBSCRIBED
+
+Contract and connection are ok, but the data cannot be retrieved due to lack of permissions.
+
+The data will indicate to the system that it cannot retrieve the data
+
+DELAYED
+
+Signaled to indicate that a historical/backfilling operation are in progress and the data being processed by the strategy is not real-time data
+
+LIVE
+
+Signaled to indicate that the data to be processed from this point onwards by the strategy is real-time data
+
+Developers of strategies should consider which actions to undertake in cases like when a disconnection takes place or when receiving delayed data.
+
+VCBroker - Trading Live
+Using the broker
+To use the VCBroker, the standard broker simulation instance created by cerebro has to be replaced.
+
+Using the Store model (preferred):
+
+
+import backtrader as bt
+
+cerebro = bt.Cerebro()
+vcstore = bt.stores.VCStore()
+cerebro.broker = vcstore.getbroker()  # or cerebro.setbroker(...)
+Broker Parameters
+Be it directly or over getbroker the VCBroker broker supports no parameters. This is because the broker is just a proxy to the a real Broker. And what the real broker gives, shall not be taken away.
+
+Restrictions
+Position
+Visual Chart reports open positions. This could be used most of the time to control the actual position, but a final event indicating a Position has been closed is missing.
+
+That makes it compulsory for backtrader to keep full accounting of the Position and separate from any previous existing position in your account
+
+Commission
+The COM trading interface doesn’t report commissions. There is no chance for backtrader to make and educated guess, unless:
+
+The broker is instantiated with a Commission instance indicating which commissions do actually take place.
+Trading with it
+Account
+Visual Chart supports several accounts at the same time in one broker. The chosen account can be controlled with the parameter:
+
+account (default: None)
+
+VisualChart supports several accounts simultaneously on the broker. If the default None is in place the 1st account in the ComTrader Accounts collection will be used.
+
+If an account name is provided, the Accounts collection will be checked and used if present
+
+Opperations
+There is no change with regards to the standar usage. Just use the methods available in the strategy (see the Strategy reference for a full explanation)
+
+buy
+
+sell
+
+close
+
+cancel
+
+Order objects returned
+Standard backtrader Order objects
+Order Execution Types
+Visual Chart supports the minimum order execution types needed by backtrader and as such, anyhing which is backtested can go live.
+
+As such the order execution types are limited to the ones available in the broker simulation:
+
+Order.Market
+
+Order.Close
+
+Order.Limit
+
+Order.Stop (when the Stop is triggered a Market order follows)
+
+Order.StopLimit (when the Stop is triggered a Limit order follows)
+
+Order Validity
+The same validity notion available during backtesting (with valid to buy and sell) is available and with the same meaning. As such, the valid parameter is translated as follows for Visual Chart Orders for the following values:
+
+None translates to Good Til Cancelled
+
+Because no validity has been specified it is understood that the order must be valid until cancelled
+
+datetime/date translates to Good Til Date
+
+Note
+
+Beware: Visual Chart does only support “full dates” and the time part is discarded.
+
+timedelta(x) translates to Good Til Date (here timedelta(x) != timedelta())
+
+Note
+
+Beware: Visual Chart does only support full dates and the time part is discarded.
+
+This is interpreted as a signal to have an order be valid from now + timedelta(x)
+
+timedelta() or 0 translates to Session
+
+A value has been passed (instead of None) but is Null and is interpreted as an order valid for the current day (session)
+
+Notifications
+The standard Order status will be notified to a strategy over the method notify_order (if overridden)
+
+Submitted - the order has been sent to TWS
+
+Accepted - the order has been placed
+
+Rejected - order placement failed or was cancelled by the system during its lifetime
+
+Partial - a partial execution has taken place
+
+Completed - the order has been fully executed
+
+Canceled (or Cancelled)
+
+Expired - Not reported as of yet. An heuristic would be needed to distinguish this status from Cancelled
+
+Reference
+VCStore
+class backtrader.stores.VCStore()
+Singleton class wrapping an ibpy ibConnection instance.
+
+The parameters can also be specified in the classes which use this store, like VCData and VCBroker
+
+VCBroker
+class backtrader.brokers.VCBroker(**kwargs)
+Broker implementation for VisualChart.
+
+This class maps the orders/positions from VisualChart to the internal API of backtrader.
+
+Params:
+
+account (default: None)
+
+VisualChart supports several accounts simultaneously on the broker. If the default None is in place the 1st account in the ComTrader Accounts collection will be used.
+
+If an account name is provided, the Accounts collection will be checked and used if present
+
+commission (default: None)
+
+An object will be autogenerated if no commission-scheme is passed as parameter
+
+See the notes below for further explanations
+
+Notes
+Position
+VisualChart reports “OpenPositions” updates through the ComTrader interface but only when the position has a “size”. An update to indicate a position has moved to ZERO is reported by the absence of such position. This forces to keep accounting of the positions by looking at the execution events, just like the simulation broker does
+
+Commission
+The ComTrader interface of VisualChart does not report commissions and as such the auto-generated CommissionInfo object cannot use non-existent commissions to properly account for them. In order to support commissions a commission parameter has to be passed with the appropriate commission schemes.
+
+The documentation on Commission Schemes details how to do this
+
+Expiration Timing
+The ComTrader interface (or is it the comtypes module?) discards time information from datetime objects and expiration dates are always full dates.
+
+Expiration Reporting
+At the moment no heuristic is in place to determine when a cancelled order has been cancelled due to expiration. And therefore expired orders are reported as cancelled.
+
+VCData
+class backtrader.feeds.VCData(**kwargs)
+VisualChart Data Feed.
+
+Params:
+
+qcheck (default: 0.5) Default timeout for waking up to let a resampler/replayer that the current bar can be check for due delivery
+
+The value is only used if a resampling/replaying filter has been inserted in the data
+
+historical (default: False) If no todate parameter is supplied (defined in the base class), this will force a historical only download if set to True
+
+If todate is supplied the same effect is achieved
+
+milliseconds (default: True) The bars constructed by Visual Chart have this aspect: HH:MM:59.999000
+
+If this parameter is True a millisecond will be added to this time to make it look like: HH::MM + 1:00.000000
+
+tradename (default: None) Continous futures cannot be traded but are ideal for data tracking. If this parameter is supplied it will be the name of the current future which will be the trading asset. Example:
+
+001ES -> ES-Mini continuous supplied as dataname
+
+ESU16 -> ES-Mini 2016-09. If this is supplied in tradename it will be the trading asset.
+
+usetimezones (default: True) For most markets the time offset information provided by Visual Chart allows for datetime to be converted to market time (backtrader choice for representation)
+
+Some markets are special (096) and need special internal coverage and timezone support to display in the user expected market time.
+
+If this parameter is set to True importing pytz will be attempted to use timezones (default)
+
+Disabling it will remove timezone usage (may help if the load is excesive)
+
+(C) 2015-2024 Daniel Rodriguez
+
+

@@ -9,6 +9,7 @@ from typing import Optional, Union, List, Dict, Any
 import json
 from datetime import datetime, timedelta, timezone
 import hashlib
+import glob
 
 
 class SmartDatabaseManager:
@@ -398,26 +399,59 @@ class SmartDatabaseManager:
     def query_analysis_data(self, analysis_type: Optional[str] = None, 
                            symbol: Optional[str] = None) -> pd.DataFrame:
         """Query analysis data"""
-        pattern = "data/analysis/**/*.parquet"
-        
-        query = f"SELECT * FROM read_parquet('{pattern}')"
-        conditions = []
-        
-        if analysis_type:
-            conditions.append(f"analysis_type = '{analysis_type}'")
-        if symbol:
-            conditions.append(f"symbol = '{symbol}'")
-        
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
-        
-        query += " ORDER BY timestamp DESC"
-        
-        try:
-            return self.conn.execute(query).df()
-        except Exception as e:
-            print(f"Query error: {e}")
+        base_dir = Path("data/analysis")
+        if not base_dir.exists():
+            print("[SmartDB] No analysis directory found")
             return pd.DataFrame()
+
+        # Build a scoped glob pattern to avoid mixing schemas lacking analysis_type
+        if analysis_type and symbol:
+            pattern = f"data/analysis/{analysis_type}/{symbol}/**/*.parquet"
+        elif analysis_type:
+            pattern = f"data/analysis/{analysis_type}/**/*.parquet"
+        elif symbol:
+            pattern = f"data/analysis/*/{symbol}/**/*.parquet"
+        else:
+            pattern = "data/analysis/**/*.parquet"
+
+        matches = glob.glob(pattern, recursive=True)
+        if not matches:
+            print(f"[SmartDB] No analysis parquet files for pattern: {pattern}")
+            return pd.DataFrame()
+
+        query = f"SELECT * FROM read_parquet('{pattern}')"
+
+        try:
+            df = self.conn.execute(query).df()
+        except Exception as exc:
+            print(f"[SmartDB] DuckDB query failed ({exc}); falling back to pandas read")
+            frames = []
+            for file_path in matches:
+                try:
+                    frames.append(pd.read_parquet(file_path))
+                except Exception as read_exc:
+                    print(f"  Skipping unreadable file {file_path}: {read_exc}")
+            df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+        if df.empty:
+            return df
+
+        # Apply filters in pandas to avoid binder errors when columns are missing
+        if analysis_type:
+            if 'analysis_type' not in df.columns:
+                df['analysis_type'] = analysis_type
+            df = df[df['analysis_type'] == analysis_type]
+
+        if symbol:
+            if 'symbol' not in df.columns:
+                print("[SmartDB] Symbol column missing in analysis data")
+                return pd.DataFrame()
+            df = df[df['symbol'] == symbol]
+
+        if 'timestamp' in df.columns:
+            df = df.sort_values('timestamp', ascending=False)
+        
+        return df.reset_index(drop=True)
     
     # ============ METRICS DATA METHODS ============
     

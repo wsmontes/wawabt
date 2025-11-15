@@ -97,4 +97,15 @@ Use this when pipelines stall, when CI needs to validate fixtures, or before kic
    - `stale_active > 0` alerts (indicates hung writers).
 4. **Document follow-ups** in your summary (e.g., "missing news_by_symbol" → add fixture or run ingestion).
 
+## 8. Hyper-parameter Search with Optuna
+
+1. **Author a recipe** (JSON/YAML) describing `strategy_module`, `strategy_class`, time window, symbols, fixed params, and `parameter_space`. Start from `samples/recipes/sma_optuna.json`, keep `analyzer_preset` at least `minimal` (brings the `TradeAnalyzer`), and add metadata such as `{"min_closed_trades": 5, "penalty_value": 1e6}` whenever you need guards against overfitting/no-trade runs.
+2. **Install experiment extras** with `pip install -r requirements-experiments.txt` (Optuna + helpers).
+3. **Run**:
+   ```bash
+   python scripts/optimize_strategy.py --recipe samples/recipes/sma_optuna.json --n-trials 25 --print-best
+   ```
+4. **Inspect results**: winning params are printed (and stored in `optim_trials` via DuckDB). Trials with undefined metrics (e.g., Sharpe = `None`) or fewer trades than `metadata.min_closed_trades` are penalized with a large negative score (or positive when minimizing), so the ranking always favors healthy runs. If you pass `--storage`, Optuna dashboards/notebooks can attach to the same study for further analysis.
+5. **Promote**: update strategy defaults or config templates only after re-running `bt_run.py` with the chosen params plus QuantStats/reporting.
+
 Keep this file updated as new workflows emerge. Each recipe should list the relevant docs, files, and verification commands so AI assistants can act with confidence.

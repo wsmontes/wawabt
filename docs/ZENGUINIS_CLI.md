@@ -31,6 +31,25 @@ Flow:
 3. Analyzers, observers, and sizers are attached per CLI options.
 4. Results can be exported or saved to DuckDB (`--save-results`).
 
+### Optuna Experiments
+
+Entry point: `scripts/optimize_strategy.py`
+
+```bash
+python scripts/optimize_strategy.py \
+    --recipe samples/recipes/sma_optuna.json \
+    --n-trials 30 --n-jobs 2 --print-best \
+    --db-path data/experiments.duckdb
+```
+
+Recipe files describe the strategy module/class, time window, symbols, and parameter space. Trials call the same Cerebro pipeline as `bt_run.py`, compute the requested metric (Sharpe, PnL, final value), and store every trial in DuckDB (`optim_trials`) plus Optuna’s own storage if configured. Use `--print-best` or inspect DuckDB to grab the winning params before promoting them to production configs.
+
+**Guards & metadata**
+
+- `fast_period`/`slow_period` combos are auto-clamped so `slow > fast` even when Optuna samples edge values.
+- Missing metrics (Sharpe = `None`, `NaN`, `inf`, etc.) immediately fall back to the recipe’s penalty score (`metadata.penalty_value` → default `1e6`).
+- Set `metadata.min_closed_trades` whenever you need minimum trade cadence; runs without a `TradeAnalyzer` (use the `minimal` preset) or below the threshold receive the same penalty so they can’t win the study.
+
 ## Mode B – Pipeline Scheduler CLI
 
 Entry point: `engines/pipeline_scheduler.py`

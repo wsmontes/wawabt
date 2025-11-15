@@ -10,6 +10,7 @@ An enhanced version of [backtrader](https://www.backtrader.com/) with seamless d
 | **Mode B – News & Sentiment Pipeline** | You need the APScheduler-driven pipelines (news collector, FinBERT sentiment, alerting, execution). Install on top of Mode A. | `pip install -r requirements-pipeline.txt` or `make install-pipeline` | `docs/NEWS_PIPELINE_PLAN.md`, `docs/README_ENGINES.md` (pipeline sections) | `python engines/pipeline_scheduler.py --mock-pipelines --test --fixtures-dir tests/fixtures/pipeline` |
 
 > Contributors can layer tooling with `pip install -r requirements-dev.txt` or `make install-dev` (includes pytest and keeps Mode A ready for tests).
+> Need Optuna/QuantStats/Aim tooling? Use `pip install -r requirements-experiments.txt` to pull in the optional experiment stack.
 
 > 📋 **New to the project?** Check out [WORKSPACE_ORGANIZATION.md](WORKSPACE_ORGANIZATION.md) for workspace structure and best practices.
 
@@ -103,6 +104,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements-core.txt          # Mode A
 pip install -r requirements-pipeline.txt      # (Optional) layer Mode B
 pip install -r requirements-dev.txt           # (Optional) contributor tooling
+pip install -r requirements-experiments.txt   # (Optional) optimization/analysis extras
 
 # Configure API keys (optional, for specific sources)
 # Edit config/connector.json, config/datasets.json, config/rss_sources.json
@@ -206,6 +208,7 @@ python bt_run.py --strategy strategies/my_strategy.py --symbols AAPL
 - **[Data Schema Contracts](docs/DATA_SCHEMA.md)** - Canonical columns/fixtures
 - **[Engine Documentation](README_ENGINES.md)** - Data sources and CLI commands
 - **[Zenguinis CLI Cheat Sheet](docs/ZENGUINIS_CLI.md)** - Mode A/B entry points, DuckDB health check
+- **Optuna Experiments** - `scripts/optimize_strategy.py --recipe samples/recipes/sma_optuna.json`
 - **[Pipeline Runbook](docs/RUNBOOK_PIPELINE.md)** - 24/7 ops guide
 
 ## 🏗️ Architecture

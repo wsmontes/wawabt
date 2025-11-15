@@ -1,0 +1,28 @@
+{
+  "name": "sma_optuna_example",
+  "strategy_module": "strategies.sma_cross",
+  "strategy_class": "SMACrossStrategy",
+  "symbols": ["AAPL"],
+  "fromdate": "2022-01-01",
+  "todate": "2024-12-31",
+  "source": "yahoo_finance",
+  "interval": "1d",
+  "cash": 100000,
+  "commission_preset": "us_stocks_zero",
+  "analyzer_preset": "minimal",
+  "metric": "sharpe",
+  "maximize": true,
+  "fixed_params": {
+    "printlog": false
+  },
+  "parameter_space": [
+    {"name": "fast_period", "kind": "int", "low": 3, "high": 20},
+    {"name": "slow_period", "kind": "int", "low": 25, "high": 200}
+  ],
+  "metadata": {
+    "min_closed_trades": 5,
+    "train_range": ["2022-01-01", "2023-12-31"],
+    "test_range": ["2024-01-01", "2024-12-31"],
+    "objective": "Maximize Sharpe on 2022-2024 AAPL daily data with a simple walk-forward split"
+  }
+}

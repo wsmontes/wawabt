@@ -1,0 +1,30 @@
+{
+  "name": "rsi_meanreversion_optuna",
+  "strategy_module": "strategies.rsi_meanreversion",
+  "strategy_class": "RSIMeanReversionStrategy",
+  "symbols": ["AAPL"],
+  "fromdate": "2022-01-01",
+  "todate": "2024-12-31",
+  "source": "yahoo_finance",
+  "interval": "1d",
+  "cash": 100000,
+  "commission_preset": "us_stocks_zero",
+  "analyzer_preset": "minimal",
+  "metric": "sharpe",
+  "maximize": true,
+  "fixed_params": {
+    "printlog": false
+  },
+  "parameter_space": [
+    {"name": "rsi_period", "kind": "int", "low": 5, "high": 30},
+    {"name": "rsi_oversold", "kind": "int", "low": 10, "high": 40},
+    {"name": "rsi_overbought", "kind": "int", "low": 60, "high": 90}
+  ],
+  "metadata": {
+    "min_closed_trades": 5,
+    "penalty_value": 1000000,
+    "train_range": ["2022-01-01", "2023-12-31"],
+    "test_range": ["2024-01-01", "2024-12-31"],
+    "objective": "Maximize Sharpe on RSI mean reversion with rolling split"
+  }
+}

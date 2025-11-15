@@ -1,0 +1,12 @@
+# Optional extras focused on research/optimization workflows
+-r requirements-core.txt
+optuna>=3.6.0
+nevergrad>=0.10.0
+quantstats>=0.0.62
+statsmodels>=0.14.2
+arch>=6.3.0
+aim>=3.19.2
+joblib>=1.4.2
+numba>=0.59.0
+rich>=13.7.1
+fastapi>=0.111.0

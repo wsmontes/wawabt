@@ -64,6 +64,7 @@ python -m compileall backtrader engines scripts
 python tools/smoke_check.py --skip-strategy   # when time-constrained
 python bt_run.py --strategy strategies/sma_cross.py --symbols AAPL --fromdate 2024-01-01 --todate 2024-03-01 --plot 0
 python scripts/health_check.py --json        # DuckDB + parquet sanity report
+python scripts/optimize_strategy.py --recipe samples/recipes/sma_optuna.json --n-trials 5
 python scripts/sentiment_champion_strategy.py --help
 python engines/pipeline_scheduler.py --mock-pipelines --test
 ```

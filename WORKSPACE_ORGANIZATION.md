@@ -40,6 +40,7 @@ Use Mode A for research/backtesting tasks, Mode B for 24/7 ingestion/signal work
 | `bt_run.py` | Main CLI runner for Backtrader strategies with smart data loading. | `python bt_run.py --strategy strategies/sma_cross.py --symbols AAPL` |
 | `engines/cerebro_runner.py` | Programmatic runner for Cerebro pipelines. Use when orchestrating from Python. | Called inside services/scripts |
 | `scripts/*.py` | Standalone analytics or batch jobs (e.g., sentiment analysis). Inspect docstring before running. | `python scripts/sentiment_champion_strategy.py` |
+| `scripts/optimize_strategy.py` | Optuna-based hyper-parameter search using experiment recipes. | `python scripts/optimize_strategy.py --recipe samples/recipes/sma_optuna.json` |
 | `scripts/health_check.py` | DuckDB + parquet health report (schema coverage + stale alerts). | `python scripts/health_check.py --json` |
 | `engines/pipeline_scheduler.py` | Orchestrates periodic data/news ingestion. Requires configured DuckDB + configs. | `python engines/pipeline_scheduler.py` |
 

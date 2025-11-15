@@ -119,32 +119,97 @@ class NewsMarketAnalyzer:
                           end_date: datetime) -> Dict[str, pd.DataFrame]:
         """Ensure we have market data for symbols in date range"""
         logger.info(f"Ensuring market data for {len(symbols)} symbols from {start_date.date()} to {end_date.date()}...")
-        
-        market_data = {}
-        
-        # Get ALL symbols available in database
-        db_market = self.smart_db.query_market_data()
-        available_symbols = set(db_market['symbol'].unique()) if not db_market.empty else set()
-        
-        logger.info(f"  Database has {len(available_symbols)} symbols available")
-        
-        # Check EVERY mentioned symbol against what we have
-        for symbol in symbols:
-            if symbol not in available_symbols:
+
+        market_data: Dict[str, pd.DataFrame] = {}
+        missing_symbols = []
+        unique_symbols = sorted({s.upper() for s in symbols if s})
+
+        for symbol in unique_symbols:
+            # Try loading from DB first
+            data = self._load_market_data(symbol, start_date, end_date)
+
+            if data.empty:
+                logger.info(f"  No cached data for {symbol}. Fetching via SmartDB connectors...")
+                fetched = self._fetch_market_data(symbol, start_date, end_date)
+                if not fetched.empty:
+                    data = self._load_market_data(symbol, start_date, end_date)
+
+            if data.empty:
+                missing_symbols.append(symbol)
                 continue
-            
-            # Get data for this symbol in the date range
-            data = self.smart_db.query_market_data(
-                symbol=symbol,
-                start_date=start_date,
-                end_date=end_date
+
+            market_data[symbol] = data
+
+        if missing_symbols:
+            logger.warning(
+                "  Still missing market data for %d symbols (e.g., %s). Check connector credentials or symbol mapping.",
+                len(missing_symbols),
+                ", ".join(missing_symbols[:5])
             )
-            
-            if not data.empty:
-                market_data[symbol] = data
-        
-        logger.info(f"  Market data ready for {len(market_data)} symbols in the date range")
+        else:
+            logger.info("  Market data ready for all requested symbols")
+
         return market_data
+
+    def _load_market_data(self, symbol: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        """Helper to read market data for one symbol from SmartDB."""
+        try:
+            return self.smart_db.query_market_data(
+                symbol=symbol,
+                start_date=start_date.strftime('%Y-%m-%d'),
+                end_date=end_date.strftime('%Y-%m-%d')
+            )
+        except Exception as exc:
+            logger.warning(f"  Failed to read market data for {symbol}: {exc}")
+            return pd.DataFrame()
+
+    def _fetch_market_data(self, symbol: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        """Fetch missing data via connector and store through SmartDB."""
+        asset_class = self._infer_asset_class(symbol)
+        start_str = start_date.strftime('%Y-%m-%d')
+        end_str = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
+
+        try:
+            if asset_class == 'crypto':
+                df = self.connector.get_binance_klines(
+                    symbol=symbol,
+                    interval='1d',
+                    start_str=start_str,
+                    end_str=end_str,
+                    save_to_db=True
+                )
+            else:
+                df = self.connector.get_yahoo_data(
+                    symbol=symbol,
+                    start=start_str,
+                    end=end_str,
+                    interval='1d',
+                    save_to_db=True
+                )
+
+            if df is None or df.empty:
+                logger.warning(f"  Connector returned empty data for {symbol}")
+                return pd.DataFrame()
+
+            logger.info(
+                "  Stored %d new rows for %s (%s)",
+                len(df),
+                symbol,
+                'binance' if asset_class == 'crypto' else 'yahoo_finance'
+            )
+            return df
+
+        except Exception as exc:
+            logger.error(f"  Failed to fetch data for {symbol}: {exc}")
+            return pd.DataFrame()
+
+    def _infer_asset_class(self, symbol: str) -> str:
+        """Rudimentary asset-class detection to pick the right connector."""
+        symbol = symbol.upper()
+        crypto_suffixes = ('USDT', 'USD', 'BTC', 'ETH')
+        if any(symbol.endswith(sfx) for sfx in crypto_suffixes):
+            return 'crypto'
+        return 'stock'
     
     def calculate_price_changes(self, market_data: Dict[str, pd.DataFrame], 
                                 news_time: datetime, symbol: str) -> Dict[str, float]:

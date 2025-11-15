@@ -1,0 +1,99 @@
+{
+    "alpaca": {
+        "enabled": true,
+        "api_key": "",
+        "api_secret": "",
+        "base_url": "https://paper-api.alpaca.markets",
+        "data_url": "https://data.alpaca.markets",
+        "description": "Alpaca Paper Trading - US Stocks (FREE)",
+        "setup_url": "https://alpaca.markets/",
+        "risk_settings": {
+            "max_position_size_pct": 10.0,
+            "max_portfolio_risk_pct": 20.0,
+            "default_stop_loss_pct": 2.0,
+            "default_take_profit_pct": 5.0,
+            "min_confidence": 0.8,
+            "kelly_fraction": 0.25
+        },
+        "trading_hours": {
+            "start": "09:30",
+            "end": "16:00",
+            "timezone": "America/New_York",
+            "allow_premarket": false,
+            "allow_afterhours": false
+        },
+        "order_defaults": {
+            "type": "market",
+            "time_in_force": "day"
+        }
+    },
+    "binance": {
+        "enabled": true,
+        "api_key": "",
+        "api_secret": "",
+        "base_url": "https://testnet.binance.vision",
+        "description": "Binance Testnet - Crypto Paper Trading (FREE)",
+        "setup_url": "https://testnet.binance.vision/",
+        "risk_settings": {
+            "max_position_size_pct": 15.0,
+            "max_portfolio_risk_pct": 25.0,
+            "default_stop_loss_pct": 3.0,
+            "default_take_profit_pct": 8.0,
+            "min_confidence": 0.85,
+            "kelly_fraction": 0.2
+        },
+        "trading_pairs": [
+            "BTCUSDT",
+            "ETHUSDT",
+            "BNBUSDT",
+            "SOLUSDT",
+            "ADAUSDT",
+            "XRPUSDT",
+            "DOGEUSDT",
+            "MATICUSDT"
+        ],
+        "24_7_trading": true,
+        "order_defaults": {
+            "type": "market"
+        }
+    },
+    "signal_execution": {
+        "enabled": true,
+        "auto_execute": true,
+        "min_signal_confidence": 0.8,
+        "min_sentiment_score": 0.2,
+        "max_concurrent_positions": 10,
+        "position_sizing_method": "kelly",
+        "require_manual_approval": false,
+        "dry_run": false
+    },
+    "risk_management": {
+        "max_daily_loss_pct": 5.0,
+        "max_weekly_loss_pct": 10.0,
+        "circuit_breaker_enabled": true,
+        "stop_trading_on_drawdown_pct": 15.0,
+        "cool_down_after_losses": 3,
+        "max_correlation_exposure": 30.0
+    },
+    "performance_tracking": {
+        "calculate_sharpe": true,
+        "sharpe_risk_free_rate": 0.04,
+        "track_slippage": true,
+        "benchmark_symbol": "SPY",
+        "daily_report": true,
+        "weekly_report": true,
+        "alert_on_poor_performance": true,
+        "poor_performance_sharpe_threshold": 1.0
+    },
+    "notifications": {
+        "enabled": true,
+        "on_trade_open": true,
+        "on_trade_close": true,
+        "on_stop_loss_hit": true,
+        "on_take_profit_hit": true,
+        "on_circuit_breaker": true,
+        "channels": ["log", "webhook"],
+        "webhook_url": "",
+        "email": ""
+    }
+}

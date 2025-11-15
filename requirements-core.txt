@@ -1,0 +1,11 @@
+# Core dependencies to run bt_run.py with smart DB + connectors
+duckdb>=0.9.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+numpy>=1.24.0
+yfinance>=0.2.0
+python-binance>=1.0.0
+ccxt>=4.0.0
+alpaca-py>=0.8.0
+requests>=2.31.0
+urllib3>=2.0.0

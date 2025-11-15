@@ -1,0 +1,8 @@
+# Extra dependencies for news/sentiment pipelines and large datasets
+apscheduler>=3.10.4
+feedparser>=6.0.0
+kaggle>=1.5.0
+huggingface-hub>=0.19.0
+datasets>=2.14.0
+quandl>=3.7.0
+polygon-api-client>=1.12.0

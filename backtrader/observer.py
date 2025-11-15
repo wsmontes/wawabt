@@ -18,6 +18,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ###############################################################################
+# WawaBackTrader customization note:
+# This module may include local patches compared to upstream Backtrader.
+# Mark new edits with `# WBT CUSTOM` and document intent in commit messages.
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 

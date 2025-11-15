@@ -39,5 +39,14 @@ try:
 except ImportError:
     pass  # The user may not have a module installed
 
+try:
+    from .alpacastore import AlpacaStore
+except ImportError:
+    pass  # The user may not have alpaca-py installed
+
+try:
+    from .ccxtstore import CCXTStore
+except ImportError:
+    pass  # The user may not have ccxt installed
 
 from .vchartfile import VChartFile

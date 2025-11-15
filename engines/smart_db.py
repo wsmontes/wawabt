@@ -22,13 +22,16 @@ class SmartDatabaseManager:
     - Logs - partitioned by date
     """
     
-    def __init__(self, config_path: str = "config/database.json"):
+    def __init__(self, config_path: str = "config/database.json", db_path: Optional[str] = None):
         """Initialize the smart database manager"""
         self.config = self._load_config(config_path)
+        if db_path:
+            self.config.setdefault("database", {})["db_file"] = db_path
         
         # Initialize persistent DuckDB connection
         db_file = self.config.get("database", {}).get("db_file", "data/market_data.duckdb")
         Path(db_file).parent.mkdir(parents=True, exist_ok=True)
+        self.db_file = db_file
         self.conn = duckdb.connect(database=db_file)
         
         self.data_structure = self.config.get("data_structure", {})
@@ -449,6 +452,45 @@ class SmartDatabaseManager:
     
     # ============ UTILITY METHODS ============
     
+    def get_navigation_map(self) -> Dict[str, Any]:
+        """Return descriptive metadata for each data type (paths, keys, retention)."""
+        navigation = {}
+        for data_type, structure in self.data_structure.items():
+            navigation[data_type] = {
+                "path_pattern": structure.get("path_pattern"),
+                "deduplication": structure.get("deduplication"),
+                "retention_days": structure.get("retention_days", 0),
+                "description": structure.get("description", ""),
+            }
+        return navigation
+
+    def list_tables(self) -> List[str]:
+        """List user-facing DuckDB tables/views (excluding system schemas)."""
+        query = """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
+            ORDER BY table_name
+        """
+        rows = self.conn.execute(query).fetchall()
+        return [row[0] for row in rows]
+
+    def describe_table(self, table_name: str, limit: int = 5) -> Dict[str, Any]:
+        """Return schema info and preview rows for a DuckDB table/view."""
+        try:
+            schema_df = self.conn.execute(
+                f"PRAGMA table_info('{table_name}')"
+            ).df()
+            preview_df = self.conn.execute(
+                f"SELECT * FROM {table_name} LIMIT {limit}"
+            ).df()
+            return {
+                "schema": schema_df.to_dict(orient='records'),
+                "preview": preview_df.to_dict(orient='records')
+            }
+        except Exception as exc:
+            raise ValueError(f"Table '{table_name}' not found or unreadable: {exc}")
+
     def get_data_summary(self) -> Dict[str, Any]:
         """Get summary of all stored data"""
         summary = {}
@@ -469,6 +511,27 @@ class SmartDatabaseManager:
                 pass
         
         return summary
+
+    def get_self_documentation(self, preview_limit: int = 3) -> Dict[str, Any]:
+        """Return a JSON-serializable description of the DB layout and tables."""
+        documentation: Dict[str, Any] = {
+            "db_file": self.db_file,
+            "navigation": self.get_navigation_map(),
+            "tables": [],
+        }
+
+        for name in self.list_tables():
+            table_info: Dict[str, Any] = {"name": name}
+            try:
+                describe = self.describe_table(name, limit=preview_limit)
+            except ValueError:
+                pass
+            else:
+                table_info["schema"] = describe["schema"]
+                table_info["preview"] = describe["preview"]
+            documentation["tables"].append(table_info)
+
+        return documentation
     
     def cleanup_old_data(self, data_type: str = None):
         """Remove old data based on retention policy"""
@@ -512,4 +575,7 @@ if __name__ == "__main__":
     for data_type, stats in summary.items():
         print(f"  {data_type}: {stats['files']} files, {stats['size_mb']} MB")
     
+    print("\nNavigation Map:")
+    for name, meta in db.get_navigation_map().items():
+        print(f"  {name}: {meta['path_pattern']}")
     db.close()

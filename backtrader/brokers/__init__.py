@@ -40,3 +40,13 @@ try:
     from .oandabroker import OandaBroker
 except ImportError as e:
     pass  # The user may not have something installed
+
+try:
+    from .alpacabroker import AlpacaBroker
+except ImportError:
+    pass  # The user may not have alpaca-py installed
+
+try:
+    from .ccxtbroker import CCXTBroker
+except ImportError:
+    pass  # The user may not have ccxt installed

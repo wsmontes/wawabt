@@ -2,11 +2,20 @@
 
 An enhanced version of [backtrader](https://www.backtrader.com/) with seamless data management, multiple data sources, and intelligent database integration.
 
+## 🧭 Choose Your Operating Mode
+
+| Mode | When to use | Install | Primary docs | Quick verification |
+| --- | --- | --- | --- | --- |
+| **Mode A – Backtest & Research Engine** | You only need `bt_run.py`, connectors, and the smart DB for historical analysis. | `pip install -r requirements-core.txt` or `make install-core` | `BACKTRADER_INTEGRATION.md`, `WORKSPACE_ORGANIZATION.md` | `make smoke` (runs offline SMA sample + CLI help) |
+| **Mode B – News & Sentiment Pipeline** | You need the APScheduler-driven pipelines (news collector, FinBERT sentiment, alerting, execution). Install on top of Mode A. | `pip install -r requirements-pipeline.txt` or `make install-pipeline` | `docs/NEWS_PIPELINE_PLAN.md`, `docs/README_ENGINES.md` (pipeline sections) | `python engines/pipeline_scheduler.py --mock-pipelines --test --fixtures-dir tests/fixtures/pipeline` |
+
+> Contributors can layer tooling with `pip install -r requirements-dev.txt` or `make install-dev` (includes pytest and keeps Mode A ready for tests).
+
 > 📋 **New to the project?** Check out [WORKSPACE_ORGANIZATION.md](WORKSPACE_ORGANIZATION.md) for workspace structure and best practices.
 
 ## 🚀 Quick Start
 
-### Run Your First Backtest
+### Mode A – Run Your First Backtest
 
 ```bash
 # 1. Activate virtual environment
@@ -20,6 +29,30 @@ python bt_run.py --strategy strategies/sma_cross.py --symbols AAPL --plot
 ```
 
 That's it! Data is automatically fetched from Yahoo Finance and saved locally for future use.
+
+### Mode B – Dry-Run the Pipeline (Offline)
+
+```bash
+# 1. Install pipeline extras on top of core requirements
+make install-pipeline
+
+# 2. Execute every pipeline once in mock mode using fixtures
+python engines/pipeline_scheduler.py --mock-pipelines --test \
+    --fixtures-dir tests/fixtures/pipeline
+```
+
+The mock mode uses committed parquet fixtures so you can validate scheduling without hitting external APIs.
+
+## ✅ Verification Matrix
+
+| Capability | Command | Offline? | Requirements |
+| --- | --- | --- | --- |
+| Backtest happy path (Mode A) | `make smoke` (runs compile → SMA sample → `bt_run.py --help`) | ✅ yes (uses bundled CSV) | `make install-core` |
+| Deterministic unit suite | `make test` | ✅ yes | `make install-core` + pytest (via `make install-dev`) |
+| Pipeline scheduler mock cycle (Mode B) | `python engines/pipeline_scheduler.py --mock-pipelines --test --fixtures-dir tests/fixtures/pipeline` (also covered by `make smoke`) | ✅ yes (fixtures) | `make install-pipeline` |
+| Live pipeline sanity | `python engines/pipeline_scheduler.py` | ❌ needs network + API keys | Mode B + real configs |
+
+Document any new verification command in `AI_TASK_RECIPES.md` so future contributors can find it quickly.
 
 ## ✨ Key Features
 
@@ -66,8 +99,10 @@ cd WawaBackTrader
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install only what you need
+pip install -r requirements-core.txt          # Mode A
+pip install -r requirements-pipeline.txt      # (Optional) layer Mode B
+pip install -r requirements-dev.txt           # (Optional) contributor tooling
 
 # Configure API keys (optional, for specific sources)
 # Edit config/connector.json, config/datasets.json, config/rss_sources.json
@@ -168,7 +203,10 @@ python bt_run.py --strategy strategies/my_strategy.py --symbols AAPL
 - **[Backtrader Integration Guide](BACKTRADER_INTEGRATION.md)** - Complete guide to running strategies
 - **[Strategy Examples](strategies/README.md)** - Available strategies and how to create your own
 - **[Data Architecture](DATA_ARCHITECTURE.md)** - How the smart database works
+- **[Data Schema Contracts](docs/DATA_SCHEMA.md)** - Canonical columns/fixtures
 - **[Engine Documentation](README_ENGINES.md)** - Data sources and CLI commands
+- **[Zenguinis CLI Cheat Sheet](docs/ZENGUINIS_CLI.md)** - Mode A/B entry points, DuckDB health check
+- **[Pipeline Runbook](docs/RUNBOOK_PIPELINE.md)** - 24/7 ops guide
 
 ## 🏗️ Architecture
 

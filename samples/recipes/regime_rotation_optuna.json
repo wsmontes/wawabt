@@ -1,0 +1,42 @@
+{
+  "name": "regime_rotation_optuna",
+  "strategy_module": "strategies.regime_adaptive_rotation",
+  "strategy_class": "RegimeAdaptiveRotationStrategy",
+  "symbols": ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "JPM"],
+  "fromdate": "2023-01-01",
+  "todate": "2025-11-14",
+  "source": "yahoo_finance",
+  "interval": "1d",
+  "cash": 150000,
+  "commission_preset": "us_stocks_zero",
+  "analyzer_preset": "minimal",
+  "metric": "sharpe",
+  "maximize": true,
+  "fixed_params": {
+    "printlog": false,
+    "warmup": 220
+  },
+  "parameter_space": [
+    {"name": "fast_period", "kind": "int", "low": 45, "high": 90},
+    {"name": "slow_period", "kind": "int", "low": 150, "high": 260},
+    {"name": "roc_period", "kind": "int", "low": 50, "high": 126},
+    {"name": "atr_period", "kind": "int", "low": 12, "high": 25},
+    {"name": "max_positions", "kind": "int", "low": 2, "high": 4},
+    {"name": "rebalance_days", "kind": "int", "low": 4, "high": 9},
+    {"name": "risk_per_trade", "kind": "float", "low": 0.01, "high": 0.02},
+    {"name": "atr_stop_multiple", "kind": "float", "low": 1.5, "high": 3.0},
+    {"name": "take_profit", "kind": "float", "low": 0.08, "high": 0.18},
+    {"name": "trend_weight", "kind": "float", "low": 0.9, "high": 1.4},
+    {"name": "momentum_weight", "kind": "float", "low": 0.6, "high": 1.0},
+    {"name": "volatility_weight", "kind": "float", "low": 0.2, "high": 0.6},
+    {"name": "minimum_score", "kind": "float", "low": -0.02, "high": 0.05}
+  ],
+  "metadata": {
+    "penalty_value": 100000,
+    "min_closed_trades": 20,
+    "target_sharpe": 1.25,
+    "train_range": ["2023-01-01", "2024-06-30"],
+    "test_range": ["2024-07-01", "2025-11-14"],
+    "objective": "Maximize Sharpe ratio (>1.25 target) for RegimeAdaptiveRotationStrategy on a diverse US mega-cap basket"
+  }
+}

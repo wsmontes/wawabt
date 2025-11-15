@@ -68,7 +68,35 @@ python bt_run.py --strategy strategies/multi_symbol_portfolio.py \
     --cash 100000
 ```
 
-### 4. Template (`template.py`)
+### 4. Regime-Adaptive Rotation (`regime_adaptive_rotation.py`)
+Adaptive multi-factor strategy that ranks symbols using trend, momentum, and volatility filters, then allocates capital with ATR-based position sizing and dynamic stops.
+
+**Parameters:**
+- `fast_period`: Fast EMA period for trend signal (default: 50)
+- `slow_period`: Slow EMA period (default: 200)
+- `roc_period`: Rate-of-change lookback for momentum (default: 63)
+- `atr_period`: ATR window for volatility sizing (default: 20)
+- `max_positions`: Maximum concurrent holdings (default: 4)
+- `rebalance_days`: Bars between ranking cycles (default: 5)
+- `risk_per_trade`: Fraction of equity risked per position (default: 0.02)
+- `atr_stop_multiple`: ATR multiple for trailing stop (default: 2.5)
+- `take_profit`: Fractional profit target relative to entry (default: 0.10)
+
+**Usage:**
+```bash
+# Run on core mega-cap symbols with 2-year window
+python bt_run.py --strategy strategies/regime_adaptive_rotation.py \
+    --symbols AAPL MSFT GOOGL AMZN META NVDA TSLA JPM \
+    --fromdate 2023-11-14 --todate 2025-11-14 \
+    --cash 100000 --commission 0.0005
+
+# Tighten rotation frequency and cap risk-per-trade
+python bt_run.py --strategy strategies/regime_adaptive_rotation.py \
+    --symbols AAPL MSFT NVDA TSLA \
+    --params rebalance_days=3 risk_per_trade=0.015 max_positions=3
+```
+
+### 5. Template (`template.py`)
 Empty template for creating your own strategies.
 
 ## Creating Your Own Strategy

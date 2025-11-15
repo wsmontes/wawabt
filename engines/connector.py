@@ -731,25 +731,71 @@ class EnhancedConnectorEngine:
     # ======================== Binance Methods ========================
     
     def get_binance_klines(self, symbol: str, interval: str = '1d',
-                          start_str: Optional[str] = None, 
-                          end_str: Optional[str] = None,
+                          start_str: Optional[Union[str, int, datetime]] = None, 
+                          end_str: Optional[Union[str, int, datetime]] = None,
                           limit: int = 500, save_to_db: bool = True) -> pd.DataFrame:
-        """Get kline/candlestick data from Binance (kept for backwards compatibility)"""
+        """Get kline/candlestick data from Binance with optional historical range"""
         if 'binance' not in self.connections:
             raise RuntimeError("Binance not initialized")
         
         client = self.connections['binance']
-        
-        klines = self._retry_request(
-            client.get_historical_klines,
-            symbol=symbol,
-            interval=interval,
-            start_str=start_str,
-            end_str=end_str,
-            limit=limit
-        )
-        
-        df = pd.DataFrame(klines, columns=[
+
+        def _to_millis(value: Optional[Union[str, int, float, datetime]]) -> Optional[int]:
+            if value is None:
+                return None
+            if isinstance(value, (int, float)):
+                return int(value)
+            if isinstance(value, datetime):
+                return int(value.timestamp() * 1000)
+            return int(pd.Timestamp(value).timestamp() * 1000)
+
+        start_ms = _to_millis(start_str)
+        end_ms = _to_millis(end_str)
+
+        request_limit = min(max(limit, 1), 1000)
+        all_klines: List[List[Any]] = []
+        current_start = start_ms
+        prev_last_open_time: Optional[int] = None
+
+        while True:
+            request_kwargs = {
+                'symbol': symbol,
+                'interval': interval,
+                'limit': request_limit
+            }
+
+            if current_start is not None:
+                request_kwargs['start_str'] = current_start
+            if end_ms is not None:
+                request_kwargs['end_str'] = end_ms
+
+            batch = self._retry_request(
+                client.get_historical_klines,
+                **request_kwargs
+            )
+
+            if not batch:
+                break
+
+            all_klines.extend(batch)
+
+            last_open_time = batch[-1][0]
+            if prev_last_open_time is not None and last_open_time <= prev_last_open_time:
+                break
+            prev_last_open_time = last_open_time
+
+            if end_ms is not None and last_open_time >= end_ms:
+                break
+
+            current_start = last_open_time + 1
+            time.sleep(0.2)
+
+        if not all_klines:
+            return pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close', 'volume',
+                                         'close_time', 'quote_volume', 'trades', 'taker_buy_base',
+                                         'taker_buy_quote', 'ignore'])
+
+        df = pd.DataFrame(all_klines, columns=[
             'timestamp', 'open', 'high', 'low', 'close', 'volume',
             'close_time', 'quote_volume', 'trades', 'taker_buy_base',
             'taker_buy_quote', 'ignore'

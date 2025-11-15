@@ -14,7 +14,8 @@ Enhanced with:
 import argparse
 import sys
 import os
-from datetime import datetime, timedelta
+from collections import OrderedDict
+from datetime import datetime, timedelta, date
 from pathlib import Path
 import importlib.util
 
@@ -22,6 +23,7 @@ import importlib.util
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import backtrader as bt
+from backtrader import TimeFrame
 from engines import (
     CerebroRunner, 
     quick_backtest,
@@ -29,6 +31,105 @@ from engines import (
     CommissionHelper,
     setup_commission
 )
+
+
+TIMEFRAME_NAME_MAP = {
+    'notime': TimeFrame.NoTimeFrame,
+    'days': TimeFrame.Days,
+    'weeks': TimeFrame.Weeks,
+    'months': TimeFrame.Months,
+    'years': TimeFrame.Years,
+}
+
+
+def _ensure_datetime(value):
+    """Normalize analyzer datetime keys to datetime objects."""
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                try:
+                    return datetime.strptime(value, fmt)
+                except ValueError:
+                    continue
+    if isinstance(value, (int, float)):
+        try:
+            return bt.num2date(value)
+        except Exception:
+            return datetime.fromtimestamp(value)
+    raise ValueError(f"Unsupported datetime key: {value}")
+
+
+def _get_first_strategy(results):
+    if not results:
+        return None
+    first = results[0]
+    if isinstance(first, list) and first:
+        return first[0]
+    return first if isinstance(first, bt.Strategy) else None
+
+
+def build_monthly_breakdown(results, initial_cash):
+    strat = _get_first_strategy(results)
+    if strat is None or not hasattr(strat, 'analyzers'):
+        return None
+    timereturn = getattr(strat.analyzers, 'timereturn', None)
+    if timereturn is None:
+        return None
+    analysis = timereturn.get_analysis()
+    if not analysis:
+        return None
+
+    sorted_items = sorted(analysis.items(), key=lambda kv: _ensure_datetime(kv[0]))
+    monthly_map = OrderedDict()
+    for key, ret in sorted_items:
+        dt = _ensure_datetime(key)
+        month_key = f"{dt.year}-{dt.month:02d}"
+        monthly_map.setdefault(month_key, []).append(ret)
+
+    breakdown = []
+    equity = float(initial_cash)
+    for month, ret_list in monthly_map.items():
+        compounded = 1.0
+        for value in ret_list:
+            compounded *= (1.0 + value)
+        month_return = compounded - 1.0
+        pnl = equity * month_return
+        equity += pnl
+        breakdown.append({
+            'month': month,
+            'return_pct': month_return * 100.0,
+            'pnl': pnl,
+            'equity': equity,
+            'return_decimal': month_return,
+        })
+
+    return breakdown
+
+
+def print_monthly_breakdown(breakdown):
+    if not breakdown:
+        print("[MonthlyReport] No monthly data available")
+        return
+
+    print("\n" + "-" * 70)
+    print("  Monthly Performance Breakdown")
+    print("-" * 70)
+    print(f"{'Month':<12}{'Return %':>12}{'PnL ($)':>16}{'Equity ($)':>18}")
+    print("-" * 70)
+    for row in breakdown:
+        print(
+            f"{row['month']:<12}"
+            f"{row['return_pct']:>12.2f}"
+            f"{row['pnl']:>16,.2f}"
+            f"{row['equity']:>18,.2f}"
+        )
+    print("-" * 70 + "\n")
 
 
 def load_strategy_from_file(strategy_path: str):
@@ -169,7 +270,22 @@ def run_strategy(args):
     # Add analyzers
     if not args.no_analyzers:
         analyzer_preset = args.analyzer_preset or 'minimal'
-        runner.add_analyzers(preset=analyzer_preset)
+        custom_analyzer_params = {}
+        timereturn_params = {}
+
+        timeframe_choice = (args.timereturn_timeframe or 'auto').lower()
+        if timeframe_choice != 'auto':
+            timeframe_value = TIMEFRAME_NAME_MAP.get(timeframe_choice)
+            if timeframe_value is not None:
+                timereturn_params['timeframe'] = timeframe_value
+
+        if args.timereturn_compression:
+            timereturn_params['compression'] = args.timereturn_compression
+
+        if timereturn_params:
+            custom_analyzer_params['timereturn'] = timereturn_params
+
+        runner.add_analyzers(preset=analyzer_preset, **custom_analyzer_params)
     
     # Configure observers
     runner.add_observers(standard=not args.no_observers, drawdown=args.drawdown)
@@ -201,6 +317,13 @@ def run_strategy(args):
         save_results=args.save_results,
         print_results=not args.no_print
     )
+
+    if args.monthly_report:
+        breakdown = build_monthly_breakdown(results, args.cash)
+        if breakdown:
+            print_monthly_breakdown(breakdown)
+        else:
+            print("[MonthlyReport] Unable to compute breakdown. Ensure TimeReturn analyzer is enabled.")
     
     # Export results if requested
     if args.export and results:
@@ -294,7 +417,7 @@ Examples:
     parser.add_argument('--commission', type=float, default=0.001,
                        help='Commission percentage (default: 0.001 = 0.1%%) - ignored if --commission-preset is used')
     parser.add_argument('--commission-preset',
-                       choices=['us_stocks', 'us_futures', 'us_forex', 'crypto_binance', 'crypto_coinbase', 
+                       choices=['us_stocks', 'us_stocks_zero', 'us_futures', 'us_forex', 'crypto_binance', 'crypto_coinbase', 
                                 'brazil_stocks', 'brazil_bdr', 'latam_stocks', 'european_stocks', 'asian_stocks', 'zero'],
                        help='Use preset commission scheme for specific market')
     
@@ -317,6 +440,14 @@ Examples:
                        help='Analyzer preset to use (default: minimal if not disabled)')
     parser.add_argument('--no-analyzers', action='store_true',
                        help='Disable performance analyzers')
+    parser.add_argument('--timereturn-timeframe',
+                       choices=['auto', 'notime', 'days', 'weeks', 'months', 'years'],
+                       default='auto',
+                       help='Override TimeReturn analyzer timeframe (requires TimeReturn analyzer)')
+    parser.add_argument('--timereturn-compression', type=int,
+                       help='Override TimeReturn analyzer compression when using intraday data')
+    parser.add_argument('--monthly-report', action='store_true',
+                       help='Print a month-by-month performance breakdown (requires TimeReturn analyzer)')
     
     # Observer options
     parser.add_argument('--no-observers', action='store_true',

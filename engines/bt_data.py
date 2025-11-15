@@ -161,6 +161,8 @@ class AutoFetchData:
         
         df = None
         
+        requires_fetch = False
+
         # Try to load from database first
         if use_smart_db and SmartDatabaseManager:
             try:
@@ -177,15 +179,25 @@ class AutoFetchData:
                 
                 if df is not None and len(df) > 0:
                     print(f"[AutoFetchData] Loaded {len(df)} rows from database for {symbol}")
+                    # Check coverage for requested window
+                    try:
+                        ts_min = pd.to_datetime(df['timestamp']).min()
+                        ts_max = pd.to_datetime(df['timestamp']).max()
+                        if ts_min > fromdate or ts_max < todate:
+                            requires_fetch = True
+                    except Exception:
+                        requires_fetch = True
                 else:
                     print(f"[AutoFetchData] No data found in database for {symbol}")
                     df = None
+                    requires_fetch = True
             except Exception as e:
                 print(f"[AutoFetchData] Database query failed: {e}")
                 df = None
+                requires_fetch = True
         
         # If no data in database and auto_fetch enabled, fetch from connector
-        if df is None and auto_fetch and ConnectorEngine:
+        if (requires_fetch or df is None) and auto_fetch and ConnectorEngine:
             try:
                 print(f"[AutoFetchData] Fetching {symbol} from {source}...")
                 connector = ConnectorEngine(
@@ -193,6 +205,7 @@ class AutoFetchData:
                     use_smart_db=use_smart_db,
                     db_config_path=db_config_path
                 )
+                existing_df = df
                 
                 # Route to appropriate connector method
                 if source == 'yahoo_finance' or source == 'yahoo':
@@ -209,6 +222,8 @@ class AutoFetchData:
                     df = connector.get_binance_klines(
                         symbol=symbol,
                         interval=interval,
+                        start_str=fromdate.strftime('%Y-%m-%d'),
+                        end_str=todate.strftime('%Y-%m-%d'),
                         limit=limit,
                         save_to_db=use_smart_db
                     )
@@ -239,7 +254,11 @@ class AutoFetchData:
                     return None
                 
                 if df is not None and len(df) > 0:
+                    if existing_df is not None and len(existing_df) > 0:
+                        df = pd.concat([existing_df, df], ignore_index=True)
                     print(f"[AutoFetchData] Fetched {len(df)} rows from {source} for {symbol}")
+                    if 'timestamp' in df.columns:
+                        df = df.drop_duplicates(subset=['timestamp', 'symbol', 'source', 'interval']).sort_values('timestamp')
                 else:
                     print(f"[AutoFetchData] Failed to fetch data from {source}")
                     return None

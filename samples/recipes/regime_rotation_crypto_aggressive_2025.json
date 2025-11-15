@@ -1,0 +1,51 @@
+{
+  "name": "regime_rotation_crypto_aggressive_2025",
+  "strategy_module": "strategies.regime_adaptive_rotation",
+  "strategy_class": "RegimeAdaptiveRotationStrategy",
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "ADAUSDT",
+    "DOGEUSDT",
+    "LINKUSDT"
+  ],
+  "fromdate": "2025-01-01",
+  "todate": "2025-11-14",
+  "source": "binance",
+  "interval": "1d",
+  "cash": 150000,
+  "commission_preset": "crypto_binance",
+  "analyzer_preset": "performance",
+  "metric": "pnl",
+  "maximize": true,
+  "fixed_params": {
+    "printlog": false,
+    "warmup": 60
+  },
+  "parameter_space": [
+  {"name": "fast_period", "kind": "int", "low": 8, "high": 45},
+  {"name": "slow_period", "kind": "int", "low": 35, "high": 85},
+  {"name": "roc_period", "kind": "int", "low": 12, "high": 60},
+    {"name": "atr_period", "kind": "int", "low": 7, "high": 20},
+    {"name": "max_positions", "kind": "int", "low": 4, "high": 6},
+    {"name": "rebalance_days", "kind": "int", "low": 3, "high": 6},
+    {"name": "risk_per_trade", "kind": "float", "low": 0.01, "high": 0.06},
+    {"name": "atr_stop_multiple", "kind": "float", "low": 0.8, "high": 2.2},
+  {"name": "take_profit", "kind": "float", "low": 0.06, "high": 0.35},
+    {"name": "trend_weight", "kind": "float", "low": 0.7, "high": 1.6},
+    {"name": "momentum_weight", "kind": "float", "low": 0.5, "high": 1.4},
+    {"name": "volatility_weight", "kind": "float", "low": 0.15, "high": 0.8},
+    {"name": "minimum_score", "kind": "float", "low": -0.08, "high": 0.02}
+  ],
+  "metadata": {
+    "penalty_value": 100000,
+    "min_closed_trades": 0,
+    "target_pnl": 20000,
+    "train_range": ["2025-01-01", "2025-07-31"],
+    "test_range": ["2025-08-01", "2025-11-14"],
+    "objective": "Maximize 2025 USD PnL on large-cap crypto basket by allowing higher risk allocations and looser regime score filters"
+  }
+}

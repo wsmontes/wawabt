@@ -1,0 +1,164 @@
+Essa parece que funcionou:
+
+# Replay the currently best parameters
+python bt_run.py \
+  --strategy strategies/regime_adaptive_rotation.py \
+  --symbols AAPL MSFT GOOGL AMZN META NVDA TSLA JPM \
+  --fromdate 2023-01-01 \
+  --todate 2025-11-14 \
+  --cash 150000 \
+  --commission-preset us_stocks_zero \
+  --params fast_period=84 slow_period=158 roc_period=118 atr_period=20 \
+           max_positions=4 rebalance_days=6 risk_per_trade=0.01192458583718899 \
+           atr_stop_multiple=1.9680653372020214 take_profit=0.14495386664936893 \
+           trend_weight=0.9726003053146719 momentum_weight=0.8096425888182535 \
+           volatility_weight=0.327592079480911 minimum_score=0.0326866987136475
+
+
+
+
+python bt_run.py \
+  --strategy strategies/regime_adaptive_rotation.py \
+  --symbols BTCUSDT ETHUSDT BNBUSDT SOLUSDT XRPUSDT ADAUSDT DOGEUSDT LINKUSDT \
+  --source binance \
+  --interval 1d \
+  --fromdate 2025-01-01 \
+  --todate 2025-11-14 \
+  --cash 150000 \
+  --commission-preset crypto_binance \
+  --analyzer-preset performance \
+  --params fast_period=39 slow_period=38 roc_period=49 atr_period=9 \
+          max_positions=5 rebalance_days=5 risk_per_trade=0.005300363076406389 \
+          atr_stop_multiple=1.7203856300019011 take_profit=0.058293751792852004 \
+          trend_weight=1.016508150462923 momentum_weight=0.9092264188755899 \
+          volatility_weight=0.6960608248696623 minimum_score=-0.03247841350100154 \
+          warmup=70 \
+  --no-print
+
+
+esse aqui funcionou bem em 2025:
+  /Users/wagnermontes/Documents/GitHub/wawabt/venv/bin/python bt_run.py --strategy strategies/regime_adaptive_rotation.py --symbols AAPL MSFT GOOGL AMZN META NVDA TSLA JPM --fromdate 2025-01-01 --todate 2025-11-14 --cash 150000 --commission-preset us_stocks_zero --analyzer-preset performance --params fast_period=35 slow_period=67 roc_period=27 atr_period=11 max_positions=4 rebalance_days=6 risk_per_trade=0.015243720779115389 atr_stop_multiple=1.7097863399240238 take_profit=0.23272822453579628 trend_weight=1.3578512803242742 momentum_weight=1.2635634457718328 volatility_weight=0.2868358705877713 minimum_score=-0.04586391808763512 warmup=90 --no-print
+
+Month           Return %         PnL ($)        Equity ($)
+----------------------------------------------------------------------
+2025-01             6.94       10,415.31        160,415.31
+2025-02            -9.74      -15,626.87        144,788.44
+2025-03            -8.70      -12,602.33        132,186.12
+2025-04           -10.44      -13,806.01        118,380.10
+2025-05             5.95        7,043.37        125,423.48
+2025-06             7.10        8,908.15        134,331.63
+2025-07             6.94        9,327.82        143,659.45
+2025-08            -1.68       -2,413.44        141,246.01
+2025-09             7.82       11,048.56        152,294.57
+2025-10             7.36       11,212.84        163,507.42
+2025-11            -4.11       -6,722.44        156,784.98
+
+
+
+
+
+# Crypto agressivo 2025 (PnL focus)
+/Users/wagnermontes/Documents/GitHub/wawabt/venv/bin/python scripts/optimize_strategy.py --recipe samples/recipes/regime_rotation_crypto_aggressive_2025.json --n-trials 60 --print-best
+
+# Replay best aggressive crypto params (final ~$172,810, +15.2%)
+/Users/wagnermontes/Documents/GitHub/wawabt/venv/bin/python bt_run.py --strategy strategies/regime_adaptive_rotation.py --symbols BTCUSDT ETHUSDT BNBUSDT SOLUSDT XRPUSDT ADAUSDT DOGEUSDT LINKUSDT --source binance --interval 1d --fromdate 2025-01-01 --todate 2025-11-14 --cash 150000 --commission-preset crypto_binance --analyzer-preset performance --params fast_period=40 slow_period=45 roc_period=17 atr_period=11 max_positions=5 rebalance_days=3 risk_per_trade=0.05038269658178647 atr_stop_multiple=0.9500623743758971 take_profit=0.2142786089224944 trend_weight=1.590876600438247 momentum_weight=0.6897041903314001 volatility_weight=0.5215053961617903 minimum_score=-0.018375419305771405 warmup=60 --no-print
+
+# Replay aggressive crypto params across ~5y window (2020-11-15→2025-11-14); final ~$287,949, +91.97%
+/Users/wagnermontes/Documents/GitHub/wawabt/venv/bin/python bt_run.py --strategy strategies/regime_adaptive_rotation.py --symbols BTCUSDT ETHUSDT BNBUSDT SOLUSDT XRPUSDT ADAUSDT DOGEUSDT LINKUSDT --source binance --interval 1d --fromdate 2020-11-15 --todate 2025-11-14 --cash 150000 --commission-preset crypto_binance --analyzer-preset performance --params fast_period=40 slow_period=45 roc_period=17 atr_period=11 max_positions=5 rebalance_days=3 risk_per_trade=0.05038269658178647 atr_stop_multiple=0.9500623743758971 take_profit=0.2142786089224944 trend_weight=1.590876600438247 momentum_weight=0.6897041903314001 volatility_weight=0.5215053961617903 minimum_score=-0.018375419305771405 warmup=60 --no-print
+
+
+
+------
+RETORNO de mais de 100% em 5 anos:
+
+python bt_run.py \
+  --strategy strategies/regime_adaptive_rotation.py \
+  --symbols AAPL MSFT GOOGL AMZN META NVDA TSLA JPM \
+  --fromdate 2020-01-01 --todate 2025-11-14 \
+  --cash 150000 \
+  --commission-preset us_stocks_zero \
+  --analyzer-preset performance \
+  --params fast_period=29 slow_period=121 roc_period=30 atr_period=12 \
+           max_positions=5 rebalance_days=4 \
+           risk_per_trade=0.005187571758743339 \
+           atr_stop_multiple=1.8742607890039118 \
+           take_profit=0.23801737608173654 \
+           trend_weight=1.1394498298826365 \
+           momentum_weight=0.6165238474220326 \
+           volatility_weight=0.384545591888287 \
+           minimum_score=0.0066762586407643175 \
+           warmup=90 \
+  --timereturn-timeframe months \
+  --monthly-report
+
+
+
+----------------------------------------------------------------------
+  Monthly Performance Breakdown
+----------------------------------------------------------------------
+Month           Return %         PnL ($)        Equity ($)
+----------------------------------------------------------------------
+2020-11             0.00            0.00        150,000.00
+2020-12             0.00            0.00        150,000.00
+2021-01             0.00            0.00        150,000.00
+2021-02             0.00            0.00        150,000.00
+2021-03             0.00            0.00        150,000.00
+2021-04             0.00            0.00        150,000.00
+2021-05             3.82        5,735.64        155,735.64
+2021-06             4.02        6,258.27        161,993.91
+2021-07             1.69        2,745.21        164,739.13
+2021-08             5.50        9,059.56        173,798.69
+2021-09            -5.19       -9,013.77        164,784.91
+2021-10             8.61       14,181.14        178,966.05
+2021-11             1.53        2,738.57        181,704.62
+2021-12            -0.27         -495.44        181,209.18
+2022-01            -3.72       -6,735.56        174,473.62
+2022-02            -1.67       -2,913.71        171,559.90
+2022-03             3.77        6,470.24        178,030.14
+2022-04            -1.60       -2,853.12        175,177.01
+2022-05            -1.36       -2,375.65        172,801.36
+2022-06            -3.12       -5,398.55        167,402.82
+2022-07             3.73        6,252.16        173,654.98
+2022-08             0.18          315.08        173,970.06
+2022-09            -0.67       -1,173.60        172,796.46
+2022-10            -1.26       -2,176.59        170,619.87
+2022-11            -0.00           -2.86        170,617.01
+2022-12             0.15          258.05        170,875.06
+2023-01             0.04           67.33        170,942.39
+2023-02             0.97        1,651.84        172,594.23
+2023-03             4.66        8,050.79        180,645.02
+2023-04             2.96        5,339.19        185,984.21
+2023-05             8.24       15,330.06        201,314.28
+2023-06             3.01        6,050.46        207,364.73
+2023-07             1.74        3,616.53        210,981.26
+2023-08            -2.01       -4,241.46        206,739.80
+2023-09            -2.34       -4,830.01        201,909.79
+2023-10            -1.05       -2,125.40        199,784.39
+2023-11             4.88        9,744.70        209,529.09
+2023-12             3.40        7,114.80        216,643.89
+2024-01             5.37       11,641.37        228,285.26
+2024-02             9.91       22,627.93        250,913.20
+2024-03             2.60        6,519.34        257,432.54
+2024-04            -2.61       -6,728.62        250,703.92
+2024-05             3.80        9,515.56        260,219.48
+2024-06             2.73        7,093.60        267,313.08
+2024-07            -1.90       -5,083.94        262,229.15
+2024-08            -0.16         -428.54        261,800.60
+2024-09             1.35        3,525.99        265,326.59
+2024-10             0.89        2,373.45        267,700.04
+2024-11             3.81       10,186.67        277,886.71
+2024-12             0.14          384.88        278,271.59
+2025-01             4.28       11,915.73        290,187.32
+2025-02            -4.16      -12,078.58        278,108.74
+2025-03            -4.36      -12,114.12        265,994.62
+2025-04             3.07        8,160.15        274,154.77
+2025-05             2.47        6,783.72        280,938.49
+2025-06             5.30       14,886.37        295,824.86
+2025-07             4.86       14,390.90        310,215.76
+2025-08            -1.61       -5,004.74        305,211.02
+2025-09             4.06       12,404.20        317,615.22
+2025-10             3.04        9,648.47        327,263.70
+2025-11            -1.61       -5,279.63        321,984.07
+
+---------
+

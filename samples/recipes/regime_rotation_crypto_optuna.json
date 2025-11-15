@@ -1,0 +1,52 @@
+{
+  "name": "regime_rotation_crypto_optuna",
+  "strategy_module": "strategies.regime_adaptive_rotation",
+  "strategy_class": "RegimeAdaptiveRotationStrategy",
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "ADAUSDT",
+    "DOGEUSDT",
+    "LINKUSDT"
+  ],
+  "fromdate": "2025-01-01",
+  "todate": "2025-11-14",
+  "source": "binance",
+  "interval": "1d",
+  "cash": 150000,
+  "commission_preset": "crypto_binance",
+  "analyzer_preset": "performance",
+  "metric": "sharpe",
+  "maximize": true,
+  "fixed_params": {
+    "printlog": false,
+    "warmup": 70
+  },
+  "parameter_space": [
+  {"name": "fast_period", "kind": "int", "low": 10, "high": 40},
+  {"name": "slow_period", "kind": "int", "low": 35, "high": 80},
+  {"name": "roc_period", "kind": "int", "low": 14, "high": 60},
+    {"name": "atr_period", "kind": "int", "low": 7, "high": 25},
+    {"name": "max_positions", "kind": "int", "low": 3, "high": 5},
+    {"name": "rebalance_days", "kind": "int", "low": 3, "high": 7},
+  {"name": "risk_per_trade", "kind": "float", "low": 0.005, "high": 0.03},
+  {"name": "atr_stop_multiple", "kind": "float", "low": 1.4, "high": 3.4},
+  {"name": "take_profit", "kind": "float", "low": 0.05, "high": 0.3},
+    {"name": "trend_weight", "kind": "float", "low": 0.7, "high": 1.5},
+    {"name": "momentum_weight", "kind": "float", "low": 0.5, "high": 1.3},
+    {"name": "volatility_weight", "kind": "float", "low": 0.15, "high": 0.85},
+    {"name": "minimum_score", "kind": "float", "low": -0.04, "high": 0.07}
+  ],
+  "metadata": {
+    "penalty_value": 100000,
+  "min_closed_trades": 0,
+    "target_sharpe": 1.35,
+    "sharpe_periods_per_year": 252,
+    "train_range": ["2025-01-01", "2025-07-31"],
+    "test_range": ["2025-08-01", "2025-11-14"],
+    "objective": "Maximize Sharpe ratio (>1.35 target) for RegimeAdaptiveRotationStrategy trading large-cap crypto pairs during 2025 daily data"
+  }
+}

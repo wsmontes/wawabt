@@ -134,16 +134,26 @@ class OptunaBacktestOptimizer:
         if metric == "pnl_pct":
             return self._coerce_metric(pnl_pct)
         if metric == "sharpe":
-            sharpe = analyzers.get("sharpe", {})
+            sharpe = analyzers.get("sharpe", {}) or {}
             value = sharpe.get("sharperatio")
+            if not self._is_finite_number(value):
+                fallback = self._timereturn_sharpe(analyzers)
+                if fallback is not None:
+                    value = fallback
             return self._coerce_metric(value)
         if metric in {"max_drawdown", "drawdown"}:
-            drawdown = analyzers.get("drawdown", {})
-            if isinstance(drawdown, dict):
-                max_section = drawdown.get("max") or {}
-                value = max_section.get("drawdown")
-                magnitude = self._coerce_metric(value)
-                return -abs(magnitude)
+            dd_pct = self._max_drawdown_pct(analyzers)
+            magnitude = self._coerce_metric(dd_pct)
+            return -abs(magnitude)
+        if metric == "calmar":
+            dd_pct = self._max_drawdown_pct(analyzers)
+            epsilon = self._metadata_float("calmar_min_drawdown", 1.0)
+            if dd_pct is None:
+                denom = epsilon
+            else:
+                denom = max(abs(dd_pct), epsilon)
+            ratio = pnl_pct / denom if denom else pnl_pct
+            return self._coerce_metric(ratio)
         # Default fallback
         return self._coerce_metric(final_value)
 
@@ -154,6 +164,50 @@ class OptunaBacktestOptimizer:
         except (TypeError, ValueError):
             magnitude = 1e6
         return -abs(magnitude) if self.recipe.maximize else abs(magnitude)
+
+    def _timereturn_sharpe(self, analyzers: Dict[str, Any]) -> Optional[float]:
+        timereturn = analyzers.get("timereturn")
+        if not isinstance(timereturn, dict):
+            return None
+
+        values: List[float] = []
+        for value in timereturn.values():
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+            if math.isnan(numeric) or math.isinf(numeric):
+                continue
+            values.append(numeric)
+
+        if len(values) < 2:
+            return None
+
+        mean = sum(values) / len(values)
+        variance = sum((val - mean) ** 2 for val in values) / (len(values) - 1)
+        if variance <= 0:
+            return None
+
+        std_dev = math.sqrt(variance)
+        if std_dev <= 0:
+            return None
+
+        periods = self.recipe.metadata.get("sharpe_periods_per_year", 252)
+        try:
+            periods = float(periods)
+        except (TypeError, ValueError):
+            periods = 252.0
+        periods = max(periods, 1.0)
+
+        return (mean / std_dev) * math.sqrt(periods)
+
+    @staticmethod
+    def _is_finite_number(value: Any) -> bool:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return False
+        return not math.isnan(numeric) and not math.isinf(numeric)
 
     def _coerce_metric(self, value: Any, fallback: Optional[float] = None) -> float:
         penalty = self._penalty_value()
@@ -166,12 +220,43 @@ class OptunaBacktestOptimizer:
         except (TypeError, ValueError):
             return fallback_value
 
+    def _metadata_float(self, key: str, default: float) -> float:
+        value = self.recipe.metadata.get(key, default)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
+
     def _passes_trade_guard(self, analyzers: Dict[str, Any]) -> bool:
         min_trades = int(self.recipe.metadata.get("min_closed_trades", 0) or 0)
         if min_trades <= 0:
             return True
         closed_trades = self._extract_closed_trades(analyzers)
         return closed_trades >= min_trades
+
+    def _max_drawdown_pct(self, analyzers: Dict[str, Any]) -> Optional[float]:
+        drawdown = analyzers.get("drawdown")
+        if not isinstance(drawdown, dict):
+            return None
+
+        candidates = []
+        max_section = drawdown.get("max")
+        if isinstance(max_section, dict):
+            candidates.append(max_section.get("drawdown"))
+        candidates.append(drawdown.get("drawdown"))
+
+        for value in candidates:
+            try:
+                if value is None:
+                    continue
+                numeric = float(value)
+                if math.isnan(numeric) or math.isinf(numeric):
+                    continue
+                return numeric
+            except (TypeError, ValueError):
+                continue
+
+        return None
 
     def _extract_closed_trades(self, analyzers: Dict[str, Any]) -> int:
         trades = analyzers.get("trades")
